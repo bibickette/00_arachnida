@@ -31,3 +31,20 @@ Ouvrir le python interactif : dans le .venv activé, taper python, la on peut ec
 
 Script : fichier texte interprété par un langage (Python, Bash, etc.)
 Binaire : programme compilé en code machine (C, C++, Go…)
+
+
+
+from dataclasses import dataclass # permet des creer des classes
+
+@dataclass
+class Args:
+    flag_r: bool = False
+    depth: int = 5
+    url: str | None = None
+    path: str | None = None
+
+
+from src.arg_checker import arg_check ; pour import
+
+
+    args = Args()
