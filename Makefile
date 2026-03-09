@@ -1,6 +1,6 @@
 all:
-	chmod +x setup.sh
-	./setup.sh
+	chmod +x ./arachnida/setup.sh
+	./arachnida/setup.sh
 
 clean:
 	rm -rf .venv

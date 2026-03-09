@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 import sys
-
-
 from src.arg_checker import arg_check
 
 def main() -> int:
