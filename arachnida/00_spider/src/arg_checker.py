@@ -7,9 +7,7 @@ from dataclasses import dataclass # permet des creer des classes
 
 @dataclass
 class Args:
-    # l: bool = False
     depth: int | None = None
-    # p: bool = False
     path: str | None = None
     url: str | None = None
 
@@ -37,7 +35,6 @@ def is_valid_flag(flag_value : str, char_used : set) :
     for char in flag_value[1:] :
         if char != "r" and char != "l" and char != "p" :
             raise ValueError(f"Error : wrong char : {char}")
-        # -rlr => char != previous 
         if (char != previous) and char in char_used : 
             raise ValueError(f"Flag Error : {flag_value}\nFlag already used: {char}")
         char_used.add(char)
@@ -48,29 +45,23 @@ def is_valid_flag(flag_value : str, char_used : set) :
 
 
 def options_verify(args : Args, value : str, char_used : set, possible_argument : str, iterator : int) -> (Args) :
-    # if(value.startswith("-")) :
     if possible_argument is None:
         raise ValueError(f"Missing argument for flag {value}")
         
     if "l" in char_used :
-        # args.l = True
         if value[len(value) - 1] == "l":
             args.depth = parse_depth(possible_argument)
             iterator += 1
-            # print(f"verify l argument : {possible_argument}, after parse : {args.depth}")
-        # verifier si largument dapres est un flag : ne rien faire, sinon : doit etre un int ou une str ( si -rl 4 url ; -rl url)
+
     if "p" in char_used :
-        # args.p = True
         if value[len(value) - 1] == "p":
             args.path = possible_argument
             print(f"verify p argument : {possible_argument}")
-        
             iterator += 1
-        # verifier si largument dapres est un flag : ne rien faire, sinon : doit etre une str
         
     return args, iterator
 
-def flag_letter_repetition_checker(args : Args, argv, char_used: set) -> (tuple[Args, set]) :
+def validate_flag_arguments(args : Args, argv, char_used: set) -> (tuple[Args, set]) :
     iterator = 1
     while iterator < len(argv) :
         arg = argv[iterator]
@@ -104,7 +95,7 @@ def arg_check(argv) -> (Args | bool) :
     # pour stocker les lettres deja utilisées
     char_used = set() 
     args = Args()
-    args, char_used = flag_letter_repetition_checker(args, sys.argv, char_used)
+    args, char_used = validate_flag_arguments(args, sys.argv, char_used)
     
 
     if not "r" in char_used :
@@ -113,14 +104,9 @@ def arg_check(argv) -> (Args | bool) :
         raise ValueError(f"Missing depth value for -l flag")
     elif "p" in char_used and (args.path is None) :
         raise ValueError(f"Missing path value for -p flag")
-    
-    # url checker
-    if args.url is None :
+    elif args.url is None :
         raise ValueError(f"Missing URL")
 
-    # need to check : si ya un flag l alors ce qui doit arriver apres est un int ou le flag r ou p, sinon false
-    # ne doit pas etre accepter : -lr 4 => refuser ; ok : -rl 4
-    # pareil pour p : -pr /data/ => refuser ; ok : -rp /data/
    
 
     return args;
