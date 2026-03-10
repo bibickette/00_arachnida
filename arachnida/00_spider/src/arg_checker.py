@@ -37,7 +37,7 @@ def options_verify(args : Args, value : str, char_used : set, possible_argument 
     if "p" in char_used :
         if value[len(value) - 1] == "p":
             args.path = possible_argument
-            print(f"verify p argument : {possible_argument}")
+            # print(f"verify p argument : {possible_argument}")
             iterator += 1
         
     return args, iterator
@@ -73,11 +73,12 @@ def validate_flag_arguments(args : Args, argv, char_used: set) -> (tuple[Args, s
             args.url = arg
             if iterator + 1 != len(argv) :
                 raise ValueError(f"Argument not expected : {arg}")
-     
         iterator +=1
+    
     return args, char_used
 
 def arg_check(argv) -> (Args | bool) :
+    MAX_DEPTH = 10
     argc = len(argv)
     
     if argc > 7:
@@ -98,15 +99,13 @@ def arg_check(argv) -> (Args | bool) :
         raise ValueError(f"Missing path value for -p flag")
     elif args.url is None :
         raise ValueError(f"Missing URL")
-    elif args.depth is not None and (args.depth < 0 or args.depth > 10) :
+    elif args.depth is not None and (args.depth < 0 or args.depth > MAX_DEPTH) :
         raise ValueError(f"Depth value must be between 0 and 10")
 
     if args.depth is None :
         args.depth = 5
     if args.path is None :
         args.path = "./data/"
-   # ne verifie pas si le path est bon ou si le depth est bon ou si lurl est bon
-   # doit set les value par defauts 5, ./data/
 
     return args;
 
