@@ -33,6 +33,7 @@ def flag_letter_checker(flag_value : str, compare : str, iterator : int, flag_se
         return None, flag_setted
     if iterator == False : # si une erreur a été detecté dans une itération précédente
         return False, flag_setted
+    
     if flag_value[iterator] == compare :
             if  flag_setted == True :
                 print(f"{RED}Flag Error : {flag_value}{RESET}", file=sys.stderr)
@@ -44,6 +45,7 @@ def flag_letter_checker(flag_value : str, compare : str, iterator : int, flag_se
     elif flag_value[iterator] != "r" and flag_value[iterator] != "l" and flag_value[iterator] != "p" :
         print(f"{RED}Error : wrong char : {flag_value[iterator]}{RESET}", file=sys.stderr)
         return False, flag_setted
+    
     return iterator, flag_setted
 
 def is_valid_flag(flag_value : str, r_used, l_used, p_used) :
@@ -71,14 +73,14 @@ def flag_checker(argv, i : int, r_used : bool, l_used : bool, p_used : bool) :
         return True, r_used, l_used, p_used
     arg = sys.argv[i]
     # detecteur de flag
-    if arg.startswith("-") and i + 1 == len(argv) : # si le flag est le dernier argument alors c'est une erreur
-        print(f"Usage: spider.py -r [-l DEPTH] [-p PATH] URL\n", file=sys.stderr)
-        print(f"{RED}Missing URL{RESET}", file=sys.stderr)
-        return False, False, False, False
-    elif arg.startswith("-") :
-            ret, r_used, l_used, p_used = is_valid_flag(arg, r_used, l_used, p_used)
-            if not ret :
-                return False, False, False, False
+    if arg.startswith("-") :
+        if i + 1 == len(argv) : # si le flag est le dernier argument alors c'est une erreur
+            print("Usage: spider.py -r [-l DEPTH] [-p PATH] URL\n", file=sys.stderr)
+            print(f"{RED}Missing URL{RESET}", file=sys.stderr)
+            return False, False, False, False
+        ret, r_used, l_used, p_used = is_valid_flag(arg, r_used, l_used, p_used)
+        if not ret :
+            return False, False, False, False
     ret, r_used, l_used, p_used = flag_checker(argv, i+1, r_used, l_used, p_used)
     return ret, r_used, l_used, p_used
 
@@ -110,4 +112,5 @@ def arg_check():
     
     # need to check : si ya un flag l alors ce qui doit arriver apres est un int ou le flag r ou p, sinon false
     # ne doit pas etre accepter : -lr 4 => refuser ; ok : -rl 4
+    # pareil pour p : -pr /data/ => refuser ; ok : -rp /data/
     return args;
