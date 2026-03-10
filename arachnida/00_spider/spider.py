@@ -6,7 +6,7 @@ def main() -> int:
     RED = "\033[31m"
     RESET = "\033[0m"
     try:
-        args = arg_check()
+        args = arg_check(sys.argv)
     except ValueError as e:
         print(f"Usage: spider.py -r [-l DEPTH] [-p PATH] URL\n\n{RED}Error : {e}{RESET}", file=sys.stderr)
         return 1
