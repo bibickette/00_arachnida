@@ -25,6 +25,8 @@ class Args:
 
 # refusé
 # pas de repetition de - : ---r
+RED = "\033[31m"
+RESET = "\033[0m"
 
 def flag_letter_checker(flag_value : str, compare : str, iterator : int, flag_setted : bool) : 
     if iterator == None or iterator >= len(flag_value) : # marque la fin du parcours pouriterator >= len et verifie si on est pas a la fin du parcours pour la lettre suivante
@@ -33,14 +35,14 @@ def flag_letter_checker(flag_value : str, compare : str, iterator : int, flag_se
         return False, flag_setted
     if flag_value[iterator] == compare :
             if  flag_setted == True :
-                print(f"Flag Error : {flag_value}", file=sys.stderr)
-                print(f"Flag is already used {flag_value[iterator]}", file=sys.stderr)
+                print(f"{RED}Flag Error : {flag_value}{RESET}", file=sys.stderr)
+                print(f"{RED}Flag is already used : {flag_value[iterator]}{RESET}", file=sys.stderr)
                 return False, flag_setted
             flag_setted = True
             while(iterator < len(flag_value) and flag_value[iterator] == compare) : # sauter les repetitions
                 iterator += 1
     elif flag_value[iterator] != "r" and flag_value[iterator] != "l" and flag_value[iterator] != "p" :
-        print(f"Error : wrong char : {flag_value[iterator]}", file=sys.stderr)
+        print(f"{RED}Error : wrong char : {flag_value[iterator]}{RESET}", file=sys.stderr)
         return False, flag_setted
     return iterator, flag_setted
 
@@ -70,8 +72,8 @@ def flag_checker(argv, i : int, r_used : bool, l_used : bool, p_used : bool) :
     arg = sys.argv[i]
     # detecteur de flag
     if arg.startswith("-") and i + 1 == len(argv) : # si le flag est le dernier argument alors c'est une erreur
-        print("Usage: spider.py -r [-l DEPTH] [-p PATH] URL\n", file=sys.stderr)
-        print(f"Missing URL", file=sys.stderr)
+        print(f"Usage: spider.py -r [-l DEPTH] [-p PATH] URL\n", file=sys.stderr)
+        print(f"{RED}Missing URL{RESET}", file=sys.stderr)
         return False, False, False, False
     elif arg.startswith("-") :
             ret, r_used, l_used, p_used = is_valid_flag(arg, r_used, l_used, p_used)
@@ -85,12 +87,12 @@ def arg_check():
     
     if argc > 7:
         print("Usage: spider.py -r [-l DEPTH] [-p PATH] URL\n", file=sys.stderr)
-        print("Maximum of 6 arguments", file=sys.stderr)
+        print(f"{RED}Maximum of 6 arguments{RESET}", file=sys.stderr)
         return False
 
     if argc < 3 :
         print("Usage: spider.py -r [-l DEPTH] [-p PATH] URL\n", file=sys.stderr)
-        print("Minimum of 3 arguments", file=sys.stderr)
+        print(f"{RED}Minimum of 3 arguments{RESET}", file=sys.stderr)
         return False
     args = Args()
     i = 1
@@ -103,7 +105,7 @@ def arg_check():
 
     if not args.r :
         print("Usage: spider.py -r [-l DEPTH] [-p PATH] URL\n", file=sys.stderr)
-        print("Flag -r is needed", file=sys.stderr)
+        print(f"{RED}Flag -r is needed{RESET}", file=sys.stderr)
         return False
     
     # need to check : si ya un flag l alors ce qui doit arriver apres est un int ou le flag r ou p, sinon false
