@@ -1,0 +1,2 @@
+https://www.w3schools.com/python/module_requests.asp
+https://laconsole.dev/formations/python/scraping-beautiful-soup
