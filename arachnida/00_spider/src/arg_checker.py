@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-
-# import argparse
-
 import sys
 from dataclasses import dataclass # permet des creer des classes
 
+# ce qui est accepté :
+# repetition de la meme lettre uniquement cote a cote : -rrr
+# repetition colle de plusieurs lettre differentes : -rrrlllppp
+# si apparition dune lettre/repetition dune lettre, elle ne peut plus etre repetée : -r -r
+
+# refusé
+# pas de repetition de - : ---r
 @dataclass
 class Args:
     depth: int | None = None
@@ -18,13 +22,25 @@ def parse_depth(val):
     except ValueError:
         return None
 
-# ce qui est accepté :
-# repetition de la meme lettre uniquement cote a cote : -rrr
-# repetition colle de plusieurs lettre differentes : -rrrlllppp
-# si apparition dune lettre/repetition dune lettre, elle ne peut plus etre repetée : -r -r
+def options_verify(args : Args, value : str, char_used : set, possible_argument : str, iterator : int) -> (Args) :
+    if value[len(value) - 1] == "r":
+        return args, iterator
+    
+    if possible_argument is None:
+        raise ValueError(f"Missing argument for flag {value}")
+        
+    if "l" in char_used :
+        if value[len(value) - 1] == "l":
+            args.depth = parse_depth(possible_argument)
+            iterator += 1
 
-# refusé
-# pas de repetition de - : ---r
+    if "p" in char_used :
+        if value[len(value) - 1] == "p":
+            args.path = possible_argument
+            print(f"verify p argument : {possible_argument}")
+            iterator += 1
+        
+    return args, iterator
 
 def is_valid_flag(flag_value : str, char_used : set) :
     previous = None
@@ -42,25 +58,6 @@ def is_valid_flag(flag_value : str, char_used : set) :
         
     return char_used
 
-
-
-def options_verify(args : Args, value : str, char_used : set, possible_argument : str, iterator : int) -> (Args) :
-    if possible_argument is None:
-        raise ValueError(f"Missing argument for flag {value}")
-        
-    if "l" in char_used :
-        if value[len(value) - 1] == "l":
-            args.depth = parse_depth(possible_argument)
-            iterator += 1
-
-    if "p" in char_used :
-        if value[len(value) - 1] == "p":
-            args.path = possible_argument
-            print(f"verify p argument : {possible_argument}")
-            iterator += 1
-        
-    return args, iterator
-
 def validate_flag_arguments(args : Args, argv, char_used: set) -> (tuple[Args, set]) :
     iterator = 1
     while iterator < len(argv) :
@@ -75,7 +72,7 @@ def validate_flag_arguments(args : Args, argv, char_used: set) -> (tuple[Args, s
         else :
             args.url = arg
             if iterator + 1 != len(argv) :
-                raise ValueError(f"Argument at the wrong place : {arg}")
+                raise ValueError(f"Argument not expected : {arg}")
      
         iterator +=1
     return args, char_used
@@ -87,17 +84,12 @@ def arg_check(argv) -> (Args | bool) :
         raise ValueError(f"Maximum of 6 arguments")
     elif argc < 3 :
         raise ValueError(f"Minimum of 3 arguments")
-
-    # si le dernier est un flag alors cest faux
-    if argv[len(argv) - 1 ].startswith("-"): 
-        raise ValueError(f"Missing URL")
     
     # pour stocker les lettres deja utilisées
     char_used = set() 
     args = Args()
     args, char_used = validate_flag_arguments(args, sys.argv, char_used)
     
-
     if not "r" in char_used :
         raise ValueError(f"Flag -r is needed")
     elif "l" in char_used and (args.depth is None) :
@@ -106,59 +98,15 @@ def arg_check(argv) -> (Args | bool) :
         raise ValueError(f"Missing path value for -p flag")
     elif args.url is None :
         raise ValueError(f"Missing URL")
+    elif args.depth is not None and (args.depth < 0 or args.depth > 10) :
+        raise ValueError(f"Depth value must be between 0 and 10")
 
-   
+    if args.depth is None :
+        args.depth = 5
+    if args.path is None :
+        args.path = "./data/"
+   # ne verifie pas si le path est bon ou si le depth est bon ou si lurl est bon
+   # doit set les value par defauts 5, ./data/
 
     return args;
 
-
-
-# pourquoi ca fait pas comme je veux : 
-# exemple :  ./arachnida/00_spider/spider.py  -rrrrllllll 4 url
-# usage: spider.py [-h] [-r] [-l [DEPTH]] [-p [PATH]] URL
-# spider.py: error: unrecognized arguments: url
-
- # parser = argparse.ArgumentParser(
-    # description="Spider: download images from a website recursively"
-    # )
-    
-    # parser.add_argument(
-    # "-r",
-    # action="store_true",
-    # help="Download recursively",
-    # )
-    
-    # parser.add_argument(
-    # "-l",
-    # type=parse_depth, # parse la valeur recue juste apres -l et la convertit en int, si la conversion echoue alors parse_depth retourne None
-    # nargs='?',       # zéro ou une valeur après -l
-    # const=5,         # valeur par défaut si -l est fourni sans valeur
-    # default=5,
-    # help="Maximum depth for recursion (default 5)",
-    # dest="depth" # remplace aussi le L dans le help
-    # )
-    
-    # parser.add_argument(
-    # "-p",
-    # type=str,
-    # nargs='?',       # zéro ou une valeur après -p
-    # const="./data/", # valeur par défaut si -p est fourni sans valeur
-    # default="./data/", # indique la valeur par defaut
-    # help="Path to save images (default ./data/)", # ce qui est ecrit dans le help
-    # dest="path" #pour acceder a la donnée ca sera ce nom, si pas definit alors cest le nom de l'argument
-    # )
-    
-    # parser.add_argument(
-    # "url",
-    # type=str,
-    # help="URL to crawl",
-    # metavar="URL"
-    # )
-    
-    # # parser.print_help()
-    
-    # args = parser.parse_args() # parse_args() va parser les arguments et les stocker dans un objet args
-    # print(args)
-    # if not args.r or not args.url:
-    #     print("Please provide an URL and the -r flag", file=sys.stderr)
-    #     return False
