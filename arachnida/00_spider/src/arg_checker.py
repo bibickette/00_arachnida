@@ -26,51 +26,25 @@ class Args:
 # refusé
 # pas de repetition de - : ---r
 
+def is_valid_flag(flag_value : str, char_used : set, iterator : int) :
+    previous = None
+    for char in flag_value[1:] :
+        previous = char
+        if char != "r" and char != "l" and char != "p" :
+            raise ValueError(f"Error : wrong char : {char}")
+        if (char != previous or iterator > 0) and char in char_used : # -rlr => char != previous  | -r -r => iterator > 0
+            raise ValueError(f"Flag Error : {flag_value}\nFlag already used: {char}")
 
-def flag_letter_checker(flag_value : str, compare : str, iterator : int, flag_setted : bool) -> (tuple[int | None, bool]) : 
-    if iterator == None or iterator >= len(flag_value) : # marque la fin du parcours pouriterator >= len et verifie si on est pas a la fin du parcours pour la lettre suivante
-        return None, flag_setted
-    
-    if flag_value[iterator] == compare :
-            if flag_setted == True :
-                raise ValueError(f"Flag Error : {flag_value}\nFlag is already used : {flag_value[iterator]}")
-            flag_setted = True
-            while(iterator < len(flag_value) and flag_value[iterator] == compare) : # sauter les repetitions
-                iterator += 1
-    
-    return iterator, flag_setted
+        char_used.add(char)
+    return char_used, iterator
 
-def is_valid_flag(flag_value : str, r_used, l_used, p_used) -> (tuple[bool, bool, bool]) :
-    i = 1  # car le char 0 est un -
-    value_len = len(flag_value)
-
-    while(i < value_len) :
-        previous_i = i
-        if flag_value[i] != "r" and flag_value[i] != "l" and flag_value[i] != "p" :
-            raise ValueError(f"Error : wrong char : {flag_value[i]}")
-        i, r_used = flag_letter_checker(flag_value, 'r',  i, r_used)
-        i, l_used = flag_letter_checker(flag_value, 'l',  i, l_used)
-        i, p_used = flag_letter_checker(flag_value, 'p',  i, p_used)
-        if not i :
-            break
-        if(previous_i == i) : # si i n'a car la lettre qui suit est lappel precedent
-            i += 1
-    
-    return r_used, l_used, p_used
-
-
-def flag_checker(argv, i : int, r_used : bool, l_used : bool, p_used : bool) -> (tuple[bool, bool, bool]) :
-    if i >= len(argv):
-        return r_used, l_used, p_used
-    arg = sys.argv[i]
-    # detecteur de flag
-    if arg.startswith("-") :
-        if i + 1 == len(argv) : # si le flag est le dernier argument alors c'est une erreur
-            raise ValueError(f"Missing URL")
-        r_used, l_used, p_used = is_valid_flag(arg, r_used, l_used, p_used)
-    
-    r_used, l_used, p_used = flag_checker(argv, i+1, r_used, l_used, p_used)
-    return r_used, l_used, p_used
+def flag_checker(argv, char_used: set) :
+    iterator = 0
+    for arg in argv[1:] :
+        if arg.startswith("-") :
+            char_used, iterator = is_valid_flag(arg, char_used, iterator)
+        iterator +=1
+    return char_used
 
 def arg_check() -> (Args | bool) :
     argc = len(sys.argv)
@@ -82,9 +56,15 @@ def arg_check() -> (Args | bool) :
         raise ValueError(f"Minimum of 3 arguments")
 
     args = Args()
-    i = 1
-    # check que les flags avec -
-    args.r, args.l, args.p = flag_checker(sys.argv, i, args.r, args.l, args.p);
+    char_used = set() # pour stocker les lettres deja utilisées
+    char_used = flag_checker(sys.argv, char_used)
+    
+    if "r" in char_used :
+        args.r = True
+    if "l" in char_used :
+        args.l = True
+    if "p" in char_used :
+        args.p = True
 
     if not args.r :
         raise ValueError(f"Flag -r is needed")
