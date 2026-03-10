@@ -48,49 +48,44 @@ def is_valid_flag(flag_value : str, char_used : set) :
 
 
 def options_verify(args : Args, value : str, char_used : set, possible_argument : str, iterator : int) -> (Args) :
-    if(value.startswith("-")) :
-        if possible_argument is None:
-            raise ValueError(f"Missing argument for flag {value}")
-            
-        if "l" in char_used :
-            # args.l = True
-            if value[len(value) - 1] == "l":
-                args.depth = parse_depth(possible_argument)
-                iterator += 1
-                # print(f"verify l argument : {possible_argument}, after parse : {args.depth}")
-            # verifier si largument dapres est un flag : ne rien faire, sinon : doit etre un int ou une str ( si -rl 4 url ; -rl url)
-        if "p" in char_used :
-            # args.p = True
-            if value[len(value) - 1] == "p":
-                args.path = possible_argument
-                print(f"verify p argument : {possible_argument}")
-                iterator += 1
-            # verifier si largument dapres est un flag : ne rien faire, sinon : doit etre une str
+    # if(value.startswith("-")) :
+    if possible_argument is None:
+        raise ValueError(f"Missing argument for flag {value}")
+        
+    if "l" in char_used :
+        # args.l = True
+        if value[len(value) - 1] == "l":
+            args.depth = parse_depth(possible_argument)
+            iterator += 1
+            # print(f"verify l argument : {possible_argument}, after parse : {args.depth}")
+        # verifier si largument dapres est un flag : ne rien faire, sinon : doit etre un int ou une str ( si -rl 4 url ; -rl url)
+    if "p" in char_used :
+        # args.p = True
+        if value[len(value) - 1] == "p":
+            args.path = possible_argument
+            print(f"verify p argument : {possible_argument}")
+        
+            iterator += 1
+        # verifier si largument dapres est un flag : ne rien faire, sinon : doit etre une str
         
     return args, iterator
 
 def flag_letter_repetition_checker(args : Args, argv, char_used: set) -> (tuple[Args, set]) :
     iterator = 1
-    for arg in argv[1:] :
-        if iterator >= len(argv):
-            break
+    while iterator < len(argv) :
+        arg = argv[iterator]
         if arg.startswith("-") :
             char_used = is_valid_flag(arg, char_used)
-        
-        
-        if iterator + 1 < len(argv) :
-            arg_to_send = argv[iterator + 1] 
-        if iterator + 1 == len(argv) :
-            print(f"this is the url : {argv[iterator]}")
-            arg_to_send = None
-        
-
-        # print(f"on the last : {iterator + 1}")
-        # print(f"arg to send = {arg_to_send}")
-        
-        # print(f" i = {iterator}; value = {argv[iterator]} |  next i = {iterator + 1}; arg for next i : {arg_to_send}")
-            
-        args, iterator = options_verify(args, arg, char_used, arg_to_send, iterator)
+            if iterator + 1 < len(argv) :
+                arg_to_send = argv[iterator + 1] 
+            else :
+                arg_to_send = None
+            args, iterator = options_verify(args, arg, char_used, arg_to_send, iterator)
+        else :
+            args.url = arg
+            if iterator + 1 != len(argv) :
+                raise ValueError(f"Argument at the wrong place : {arg}")
+     
         iterator +=1
     return args, char_used
 
@@ -111,12 +106,17 @@ def arg_check(argv) -> (Args | bool) :
     args = Args()
     args, char_used = flag_letter_repetition_checker(args, sys.argv, char_used)
     
+
     if not "r" in char_used :
         raise ValueError(f"Flag -r is needed")
     elif "l" in char_used and (args.depth is None) :
         raise ValueError(f"Missing depth value for -l flag")
     elif "p" in char_used and (args.path is None) :
         raise ValueError(f"Missing path value for -p flag")
+    
+    # url checker
+    if args.url is None :
+        raise ValueError(f"Missing URL")
 
     # need to check : si ya un flag l alors ce qui doit arriver apres est un int ou le flag r ou p, sinon false
     # ne doit pas etre accepter : -lr 4 => refuser ; ok : -rl 4
