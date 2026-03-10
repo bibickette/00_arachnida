@@ -3,8 +3,10 @@ import sys
 from src.arg_checker import arg_check
 
 def main() -> int:
-    args = arg_check()
-    if not args : # if (!)
+    try:
+        args = arg_check()
+    except ValueError as e:
+        print(e, file=sys.stderr)
         return 1
 
     print(f"\nlist of {args}\n")
