@@ -40,21 +40,18 @@ def is_valid_flag(flag_value : str, char_used : set, iterator : int) :
         char_used.add(char)
     return char_used, iterator
 
-def options_parse(args : Args, char_used : set) -> (Args) :
-    if "r" in char_used :
-        args.r = True
+
+
+def options_verify(args : Args, char_used : set, value : str) -> (Args) :
     if "l" in char_used :
         args.l = True
+        if value[len(value) - 1] == "l":
+            print("verify l argument")
+        # verifier si largument dapres est un flag : ne rien faire, sinon : doit etre un int ou une str ( si -rl 4 url ; -rl url)
     if "p" in char_used :
         args.p = True
-    return args
-
-def options_verify(args : Args, value : str) -> (Args) :
-    if args.l == True and value[len(value) - 1] == "l":
-        print("verify l argument")
-        # verifier si largument dapres est un flag : ne rien faire, sinon : doit etre un int ou une str ( si -rl 4 url ; -rl url)
-    if args.p == True and value[len(value) - 1] == "p":
-        print("verify p argument")
+        if value[len(value) - 1] == "p":
+            print("verify p argument")
         # verifier si largument dapres est un flag : ne rien faire, sinon : doit etre une str
         
     return args
@@ -64,8 +61,7 @@ def flag_letter_repetition_checker(args : Args, argv, char_used: set) -> (tuple[
     for arg in argv[1:] :
         if arg.startswith("-") :
             char_used, iterator = is_valid_flag(arg, char_used, iterator)
-        args = options_parse(args, char_used)
-        args = options_verify(args, arg)
+        args = options_verify(args, char_used, arg)
         iterator +=1
     return args, char_used
 
@@ -85,7 +81,9 @@ def arg_check(argv) -> (Args | bool) :
     char_used = set() 
     args = Args()
     args, char_used = flag_letter_repetition_checker(args, sys.argv, char_used)
-
+    
+    if not "r" in char_used :
+        raise ValueError(f"Flag -r is needed")
 
     # need to check : si ya un flag l alors ce qui doit arriver apres est un int ou le flag r ou p, sinon false
     # ne doit pas etre accepter : -lr 4 => refuser ; ok : -rl 4
