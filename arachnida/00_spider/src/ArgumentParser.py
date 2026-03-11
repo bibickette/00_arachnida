@@ -47,7 +47,7 @@ class ArgumentParser:
 
         return iterator
 
-    def parser_result_verify(self, char_used: set) -> bool:
+    def parser_result_verify(self, char_used: set) -> None:
         if not "r" in char_used:
             raise ValueError(f"Flag -r is needed")
         elif "l" in char_used and (self.depth is None):
@@ -82,7 +82,7 @@ class ArgumentParser:
 
         return char_used
 
-    def validate_flag_arguments(self, argv: list[str]) -> set:
+    def validate_flag_arguments(self, argv: list[str]) -> None:
         char_used = set()
 
         iterator = 0
