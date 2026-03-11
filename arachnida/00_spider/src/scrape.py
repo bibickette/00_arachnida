@@ -34,9 +34,11 @@ def scrape(url) :
             for img in css_img :
                 print(f"image css : {img.strip('\'\" ')}") # strip pour enlever les espaces et les guillemets simples ou doubles
 
+        # while True :
+        #     pass
     except KeyboardInterrupt:
         print(f"{RED}Scraping interrupted by user.{RESET}")
-    
+        return 1
     except requests.exceptions.RequestException as e:
         print(f"{RED}Error fetching URL: {e}{RESET}")
         return 1
