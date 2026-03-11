@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 import sys
 
-from src.arg_checker import arg_check
+from src.arg_checker import Args
 from src.scrape import scrape
 
 def main() -> int:
     RED = "\033[31m"
     RESET = "\033[0m"
     try:
-        args = arg_check(sys.argv)
+        args = Args(sys.argv)
     except ValueError as e:
         print(f"Usage: spider.py -r [-l DEPTH] [-p PATH] URL\n\n{RED}Error : {e}{RESET}", file=sys.stderr)
         return 1
     
     # scrape(args.url)
 
-    print(f"\nlist of {args.depth}\n")
+    args.print_args()
     print("program exit successfully")
     return 0
 
