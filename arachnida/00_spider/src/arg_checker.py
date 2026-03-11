@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import sys
-from dataclasses import dataclass # permet des creer des classes
 
 # ce qui est accepté :
 # repetition de la meme lettre uniquement cote a cote : -rrr
@@ -9,11 +8,14 @@ from dataclasses import dataclass # permet des creer des classes
 
 # refusé
 # pas de repetition de - : ---r
-@dataclass
 class Args:
-    depth: int | None = None
-    path: str | None = None
-    url: str | None = None
+    # depth: int | None = None
+    # path: str | None = None
+    # url: str | None = None
+    def __init__(self) -> None:
+        self.depth = None
+        self.path = None
+        self.url = None
 
     
 def parse_depth(val):
@@ -29,16 +31,14 @@ def options_verify(args : Args, value : str, char_used : set, possible_argument 
     if possible_argument is None:
         raise ValueError(f"Missing argument for flag {value}")
         
-    if "l" in char_used :
-        if value[len(value) - 1] == "l":
-            args.depth = parse_depth(possible_argument)
-            iterator += 1
+    if value[len(value) - 1] == "l":
+        args.depth = parse_depth(possible_argument)
+        iterator += 1
 
-    if "p" in char_used :
-        if value[len(value) - 1] == "p":
-            args.path = possible_argument
-            # print(f"verify p argument : {possible_argument}")
-            iterator += 1
+    elif value[len(value) - 1] == "p":
+        args.path = possible_argument
+        # print(f"verify p argument : {possible_argument}")
+        iterator += 1
         
     return args, iterator
 

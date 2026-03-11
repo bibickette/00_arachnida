@@ -23,7 +23,6 @@ def scrape(url) :
             for src in supposedly_img :
                 if src['src'] :
                     print(f"image html  : {src['src']}")
-    
         elif "text/css" in content_type :
             comment_pattern = re.compile(r"/\*.*?\*/", re.DOTALL) # regex pour trouver les commentaires dans le css, le re.DOTALL permet de faire en sorte que le . puisse matcher les sauts de ligne sinon ne le match pas
             css_without_comments = comment_pattern.sub("", response.text) # on remplace les commentaires par une chaine vide
@@ -34,8 +33,10 @@ def scrape(url) :
             css_img = pattern.findall(css_without_comments)
             for img in css_img :
                 print(f"image css : {img.strip('\'\" ')}") # strip pour enlever les espaces et les guillemets simples ou doubles
-        
-        
+
+    except KeyboardInterrupt:
+        print(f"{RED}Scraping interrupted by user.{RESET}")
+    
     except requests.exceptions.RequestException as e:
         print(f"{RED}Error fetching URL: {e}{RESET}")
         return 1

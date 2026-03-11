@@ -13,9 +13,9 @@ def main() -> int:
         print(f"Usage: spider.py -r [-l DEPTH] [-p PATH] URL\n\n{RED}Error : {e}{RESET}", file=sys.stderr)
         return 1
     
-    scrape(args.url)
+    # scrape(args.url)
 
-    print(f"\nlist of {args}\n")
+    print(f"\nlist of {args.depth}\n")
     print("program exit successfully")
     return 0
 
