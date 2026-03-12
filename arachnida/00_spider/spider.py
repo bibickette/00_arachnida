@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 import sys
+import requests
 
 from src.ArgumentParser import ArgumentParser
-from src.scrape import scrape
+from src.scrape import Scraper
 
 def main() -> int:
     RED = "\033[31m"
@@ -13,10 +14,18 @@ def main() -> int:
         print(f"Usage: spider.py -r [-l DEPTH] [-p PATH] URL\n\n{RED}Error : {e}{RESET}", file=sys.stderr)
         return 1
     
-    scrape(args.url)
-
+    try:
+        Scraper(args).scrape(args.url)
+        
+    except KeyboardInterrupt:
+        print(f"{RED}Scraping interrupted with CTRL+C.{RESET}")
+        return 1
+    except requests.exceptions.RequestException as e:
+        print(f"{RED}Error fetching URL: {e}{RESET}")
+        return 1
+    
+    
     args.print_args()
-    print("program exit successfully")
     return 0
 
 if __name__ == "__main__":

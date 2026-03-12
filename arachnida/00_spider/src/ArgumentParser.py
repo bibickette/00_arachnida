@@ -21,7 +21,8 @@ class ArgumentParser:
         self.arg_check(argv)
 
     def print_args(self) -> None:
-        print(f"depth : {self.depth}\npath : {self.path}\nurl : {self.url}")
+        print("\n==========\nArguments :\n")
+        print(f"depth : {self.depth}\npath : {self.path}\nurl : {self.url}\n==========")
 
     def parse_depth(self, val: str) -> None:
         try:
