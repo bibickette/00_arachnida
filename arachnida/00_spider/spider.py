@@ -20,6 +20,7 @@ def main() -> int:
         spider.print_total()
     except KeyboardInterrupt:
         print(f"{RED}Scraping interrupted with CTRL+C.{RESET}")
+        spider.print_total()
         return 1
     except requests.exceptions.RequestException as e:
         print(f"{RED}Error fetching URL: {e}{RESET}")
