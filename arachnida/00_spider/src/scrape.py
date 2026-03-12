@@ -17,8 +17,23 @@ class Scraper:
         self.depth = args.depth
         self.path = args.path
         
+    def define_img_name(self, url: str, extension: str) -> str:
+        return os.path.basename(urlparse(url).path) or f"image_without_name.{extension}"
+    
+    def download_image(self, url: str, image_extension: str) -> None:
+        print(f"cest une image telechargeable : {image_extension}")
+        hostname = urlparse(url).hostname.strip("/")
+        img_name = self.define_img_name(url, image_extension).strip("/")
+        path = urlparse(url).path.replace(img_name, "").strip("/")
+        print(f"nom de domaine/dossier : {hostname}")
+        print(f"chemin de limage sans nom : {path}")
+        # print(f"nom de limage : {url.split('/')[-1]}") # En Python, l’index -1 veut dire “le dernier élément” d’une liste (ou d’une chaîne).
+        print(f"nom de limage : {img_name}") # os.path.basename(path) renvoie le dernier élément d’un chemin (comme “nom de fichier”). urlparse(url).path renvoie uniquement le chemin de l’URL, sans le domaine ni les paramètres.
+        full_path = os.path.join(self.path, hostname, path, img_name) # joindre intelligement les parties du chemin pour créer un chemin complet
+        print(f"chemin de dl de limage complet : {full_path}") 
 
-    def scrape(self, url) :
+
+    def scrape(self, url) -> None :
 
         response = requests.get(url, headers=Scraper.HEADERS)
         print(f"URL : {url} | Status code : {response.status_code}\n")
@@ -32,9 +47,7 @@ class Scraper:
         if "image/" in content_type :
             img_extension = content_type.split("/")[1]
             if img_extension in Scraper.EXTENSION_IMG :
-                print(f"cest une image telechargeable : {img_extension}")
-                # print(f"nom de limage : {url.split('/')[-1]}") # En Python, l’index -1 veut dire “le dernier élément” d’une liste (ou d’une chaîne).
-                print(f"nom de limage : {os.path.basename(urlparse(url).path)}") # os.path.basename(path) renvoie le dernier élément d’un chemin (comme “nom de fichier”). urlparse(url).path renvoie uniquement le chemin de l’URL, sans le domaine ni les paramètres.
+                self.download_image(url, img_extension)
             return
         
         elif "text/" in content_type :  
