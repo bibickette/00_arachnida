@@ -20,37 +20,47 @@ class Scraper:
     def define_img_name(self, url: str, extension: str) -> str:
         return os.path.basename(urlparse(url).path) or f"image_without_name.{extension}"
     
-    def download_image(self, url: str, image_extension: str) -> None:
-        print(f"cest une image telechargeable : {image_extension}")
+    def build_full_path(self, url: str, image_extension: str) -> str:
+        print(f"cest une image de type : {image_extension}")
         hostname = urlparse(url).hostname.strip("/")
         img_name = self.define_img_name(url, image_extension).strip("/")
         path = urlparse(url).path.replace(img_name, "").strip("/")
         print(f"nom de domaine/dossier : {hostname}")
-        print(f"chemin de limage sans nom : {path}")
+        print(f"chemin sans nom : {path}")
+        os.makedirs(os.path.join(self.path, hostname, path), exist_ok=True) # creer les dossiers si ils n'existent pas deja, exist_ok=True evite de lever une exception si le dossier existe deja
         # print(f"nom de limage : {url.split('/')[-1]}") # En Python, l’index -1 veut dire “le dernier élément” d’une liste (ou d’une chaîne).
-        print(f"nom de limage : {img_name}") # os.path.basename(path) renvoie le dernier élément d’un chemin (comme “nom de fichier”). urlparse(url).path renvoie uniquement le chemin de l’URL, sans le domaine ni les paramètres.
+        print(f"nom : {img_name}") # os.path.basename(path) renvoie le dernier élément d’un chemin (comme “nom de fichier”). urlparse(url).path renvoie uniquement le chemin de l’URL, sans le domaine ni les paramètres.
         full_path = os.path.join(self.path, hostname, path, img_name) # joindre intelligement les parties du chemin pour créer un chemin complet
+        
+        return full_path
+    
+    
+    def download_image(self, response, url: str, image_extension: str) -> None:
+        if not image_extension in self.EXTENSION_IMG :
+            return 
+        full_path = self.build_full_path(url, image_extension)
         print(f"chemin de dl de limage complet : {full_path}") 
+        with open(full_path, 'wb') as file:
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
+        print("File downloaded successfully.")
+        
 
 
     def scrape(self, url) -> None :
 
-        response = requests.get(url, headers=Scraper.HEADERS)
+        response = requests.get(url, headers=self.HEADERS)
         print(f"URL : {url} | Status code : {response.status_code}\n")
         response.raise_for_status()
         content_type = response.headers.get('Content-type')
         print(f"content type : {content_type}")
-        # if "text/html" in content_type :
-            # print(f"cest une page html")
-        soup = BeautifulSoup(response.text, 'html.parser')
-        # print(f"soup : {soup}")
         if "image/" in content_type :
-            img_extension = content_type.split("/")[1]
-            if img_extension in Scraper.EXTENSION_IMG :
-                self.download_image(url, img_extension)
+            self.download_image(response, url, content_type.split("/")[1])
             return
         
-        elif "text/" in content_type :  
+        elif "text/html" in content_type :  
+            soup = BeautifulSoup(response.text, 'html.parser')
+            # print(f"soup : {soup}")
             supposedly_links = soup.find_all('a') # get tous les urls
             supposedly_img = soup.find_all('img') # get tous les src
             print(f"number of links found : {len(supposedly_links)}\nnumber of images found : {len(supposedly_img)}")
@@ -70,7 +80,7 @@ class Scraper:
             for src in supposedly_img :
                 src = src.get('src')
                 if src :
-                    print(f"image {iterator}: {src}")
+                    # print(f"image {iterator}: {src}")
                     image_urls.append(urljoin(url, src))
                     iterator += 1
             print(f"image urls found : {image_urls}")
