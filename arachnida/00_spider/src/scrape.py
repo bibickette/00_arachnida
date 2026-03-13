@@ -13,6 +13,10 @@ class Scraper:
         "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:148.0) Gecko/20100101 Firefox/148.0"
     }
     EXTENSION_IMG = ["jpg", "jpeg", "png", "gif", "bmp"]
+    GREEN = "\033[32m"
+    RED = "\033[31m"
+    RESET = "\033[0m"
+
 
     def __init__(self, args: ArgumentParser) -> None:
         self.url = args.url
@@ -47,76 +51,66 @@ class Scraper:
         full_path = os.path.join(self.path, hostname, path, img_name)  # joindre intelligement les parties du chemin pour créer un chemin complet
         os.makedirs(os.path.join(self.path, hostname, path), exist_ok=True)  # creer les dossiers si ils n'existent pas deja, exist_ok=True evite de lever une exception si le dossier existe deja
         
-        self.print_image_info(image_extension, hostname, path, img_name)
+        # self.print_image_info(image_extension, hostname, path, img_name)
         return full_path
 
     def download_image(self, response, url: str, image_extension: str) -> None:
         if not image_extension in self.EXTENSION_IMG :
             return
         full_path = self.build_full_path(url, image_extension)
-        print(f"chemin de dl de limage complet : {full_path}")
+        # print(f"chemin de dl de limage complet : {full_path}")
 
         with open(full_path, "wb") as file:
             for chunk in response.iter_content(chunk_size=8192):
                 file.write(chunk)
         self.nb_files_downloaded += 1
-        print("File downloaded successfully.")
-        
-    def extract_links(self, url: str, response, depth : int) -> None :
-        soup = BeautifulSoup(response.text, "html.parser")
-        # print(f"soup : {soup}")
-        supposedly_links = soup.find_all("a")  # get tous les urls
+        print(f"{self.GREEN}File downloaded successfully : {full_path}{self.RESET}")
+    
+    def extract_from_balise(self, url: str, soup, depth : int, balise : str) -> None :
+        supposedly_links = soup.find_all(balise)  # get tous les urls
         iterator = 0
         for link in supposedly_links:
-            link = link.get("href")
+            link = link.get("href") if balise == "a" else link.get("src")
             if link:
                 if not link.startswith("#"):
-                    iterator += 1
                     link_to_visit = urljoin(url, link)
                     if not link_to_visit in self.links_to_visit and not link_to_visit in self.visited_links:
                         if depth - 1 >= 0 :
-                            print(f"link url {iterator}: {link}")
+                            # print(f"link url {iterator}: {link_to_visit}")
                             self.links_to_visit[link_to_visit] = depth - 1
-        
-        supposedly_img = soup.find_all("img")  # get tous les src
-        iterator = 0
-        for src in supposedly_img:
-            src = src.get("src")
-            if src:
-                img_to_visit = urljoin(url, src)
-                if not img_to_visit in self.links_to_visit and not img_to_visit in self.visited_links:
-                    if depth - 1 >= 0 :
-                        print(f"image {iterator}: {src}")
-                        self.links_to_visit[img_to_visit] = depth - 1
-                iterator += 1
-        # print(f"images found : {iterator}")
-        print(f"links to visit found : {self.links_to_visit}")
-        # print(f"total links to visit : {len(self.links_to_visit)}")
-        print(
-            f"number of links found : {len(supposedly_links)}\nnumber of images found : {len(supposedly_img)}"
-        )
+                            iterator += 1
+        if iterator != 0 :
+            print(f"{self.GREEN}Number of new balise '{balise}' found = {iterator} {self.RESET}")
+
+    def extract_links(self, url: str, response, depth : int) -> None :
+        soup = BeautifulSoup(response.text, "html.parser")
+        self.extract_from_balise(url, soup, depth, "a")
+        self.extract_from_balise(url, soup, depth, "img")
+            
 
     def scrape(self, url, depth : int) -> None:
+        
         if url in self.visited_links :
             return
-        
-        response = requests.get(url, headers=self.HEADERS, timeout=3)
-        print(f"\n\nURL : {url} | Status code : {response.status_code} | Depth = {depth}\n")
-        response.raise_for_status()
-        
-        content_type = response.headers.get("Content-type")
-        print(f"content type : {content_type}")
+        try:
+            print(f"Depth = {depth} | URL : {url}")
+            response = requests.get(url, headers=self.HEADERS, timeout=3)
+            response.raise_for_status()
+            
+            content_type = response.headers.get("Content-type")
+            # print(f"content type : {content_type}")
 
-        if "text/html" in content_type:
-            self.extract_links(url, response, depth)
-        
-        elif "image/" in content_type:
-            self.download_image(response, list(self.links_to_visit.keys())[0], content_type.split("/")[1])
-            # self.download_image(response, self.links_to_visit[0], content_type.split("/")[1])
-            # print(f"links to visit after download img: {self.links_to_visit}")
+            if "text/html" in content_type:
+                self.extract_links(url, response, depth)
+            
+            elif "image/" in content_type:
+                self.download_image(response, list(self.links_to_visit.keys())[0], content_type.split("/")[1])
+
+        except requests.exceptions.RequestException as e:
+            print(f"{self.RED}Error fetching URL: {e}{self.RESET}")
+
         self.visited_links.add(url)
         del self.links_to_visit[url]
-        # self.links_to_visit.popleft()
         if len(self.links_to_visit) > 0 :
-            print(f"next link to visit : {list(self.links_to_visit.keys())[0]}\n value = {self.links_to_visit.get(list(self.links_to_visit.keys())[0])}")
+            # print(f"\n\nnext link to visit : {list(self.links_to_visit.keys())[0]}\n value = {self.links_to_visit.get(list(self.links_to_visit.keys())[0])}")
             self.scrape(list(self.links_to_visit.keys())[0], self.links_to_visit.get(list(self.links_to_visit.keys())[0]))

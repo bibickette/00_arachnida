@@ -22,9 +22,9 @@ def main() -> int:
         print(f"{RED}Scraping interrupted with CTRL+C.{RESET}")
         spider.print_total()
         return 1
-    except requests.exceptions.RequestException as e:
-        print(f"{RED}Error fetching URL: {e}{RESET}")
-        return 1
+    # except requests.exceptions.RequestException as e:
+    #     print(f"{RED}Error fetching URL: {e}{RESET}")
+    #     return 1
     
     
     args.print_args()
