@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import sys
-import requests
+import time
 
 from src.ArgumentParser import ArgumentParser
 from src.scrape import Scraper
@@ -14,20 +14,19 @@ def main() -> int:
         print(f"Usage: spider.py -r [-l DEPTH] [-p PATH] URL\n\n{RED}Error : {e}{RESET}", file=sys.stderr)
         return 1
     
+    date = time.time()
     try:
         spider = Scraper(args)
         spider.scrape(spider.url, spider.depth)
         spider.print_total()
+        print(f"Time taken for scraping : {int(time.time() - date)} seconds")
+        args.print_args()
     except KeyboardInterrupt:
         print(f"{RED}Scraping interrupted with CTRL+C.{RESET}")
+        print(f"Time taken for scraping : {int(time.time() - date)} seconds")
         spider.print_total()
         return 1
-    # except requests.exceptions.RequestException as e:
-    #     print(f"{RED}Error fetching URL: {e}{RESET}")
-    #     return 1
-    
-    
-    args.print_args()
+
     return 0
 
 if __name__ == "__main__":
