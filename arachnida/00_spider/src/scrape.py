@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import sys
 import requests
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
@@ -52,8 +53,9 @@ class Scraper:
         img_name = self.define_img_name(url, image_extension).strip("/")
         path = urlparse(url).path.replace(img_name, "").strip("/")
         full_path = os.path.join(self.path, hostname, path, img_name)  # joindre intelligement les parties du chemin pour créer un chemin complet
+        if os.path.exists(full_path):
+            raise ValueError(f"Skipping download, file already exists")
         os.makedirs(os.path.join(self.path, hostname, path), exist_ok=True)  # creer les dossiers si ils n'existent pas deja, exist_ok=True evite de lever une exception si le dossier existe deja
-        
         # self.print_image_info(image_extension, hostname, path, img_name)
         return full_path
 
@@ -61,14 +63,11 @@ class Scraper:
         if not image_extension in self.EXTENSION_IMG :
             return
         full_path = self.build_full_path(url, image_extension)
-        if not os.path.exists(full_path):
-            with open(full_path, "wb") as file:
-                for chunk in response.iter_content(chunk_size=8192):
-                    file.write(chunk)
-            self.nb_files_downloaded += 1
-            print(f"{self.GREEN}Downloaded success : {full_path}{self.RESET}")
-        else :
-            print(f"{self.YELLOW}Skipping download, file already exist{self.RESET}")
+        with open(full_path, "wb") as file:
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
+        self.nb_files_downloaded += 1
+        print(f"{self.GREEN}Download success : {full_path}{self.RESET}")       
     
     
     def extract_from_balise(self, url: str, soup, depth : int, balise : str) -> None :
@@ -97,7 +96,7 @@ class Scraper:
             
 
     def scrape(self, url, depth : int) -> None:
-        while(len(self.links_to_visit) > 0) :
+        while(url) :
             try:
                 print(f"Depth = {depth} | URL : {url}")
                 response = self.session.get(url, timeout=3)
@@ -113,11 +112,15 @@ class Scraper:
                     self.download_image(response, url, content_type.split("/")[1])
 
             except requests.exceptions.RequestException as e:
-                print(f"{self.RED}Error fetching URL: {e}{self.RESET}")
+                print(f"{self.RED}Error fetching URL: {e}{self.RESET}", file=sys.stderr)
+            except ValueError as e:
+                print(f"{self.YELLOW}Warning : {e}{self.RESET}", file=sys.stderr)
 
             self.visited_links.add(url)
             del self.links_to_visit[url]
-            if len(self.links_to_visit) > 0 :
+            if len(self.links_to_visit) > 0 : 
                 url = next(iter(self.links_to_visit))
                 depth = self.links_to_visit[url]
+            else :
+                url = None
                 
