@@ -21,6 +21,9 @@ class Scraper:
         self.url = args.url
         self.depth = args.depth
         self.path = args.path
+        
+        self.session = requests.Session()
+        self.session.headers.update(self.HEADERS)
 
         self.links_to_visit = dict() # dict pour stocker url : depth
         self.links_to_visit[self.url] = 0
@@ -94,7 +97,7 @@ class Scraper:
         while(len(self.links_to_visit) > 0) :
             try:
                 print(f"Depth = {depth} | URL : {url}")
-                response = requests.get(url, headers=self.HEADERS, timeout=3)
+                response = self.session.get(url, timeout=3)
                 response.raise_for_status()
                 
                 content_type = response.headers.get("Content-Type")
@@ -104,7 +107,7 @@ class Scraper:
                         self.extract_links(url, response, depth)
                 
                 elif "image/" in content_type:
-                    self.download_image(response, list(self.links_to_visit.keys())[0], content_type.split("/")[1])
+                    self.download_image(response, url, content_type.split("/")[1])
 
             except requests.exceptions.RequestException as e:
                 print(f"{self.RED}Error fetching URL: {e}{self.RESET}")
@@ -112,7 +115,7 @@ class Scraper:
             self.visited_links.add(url)
             del self.links_to_visit[url]
             if len(self.links_to_visit) > 0 :
-                url = list(self.links_to_visit.keys())[0]
+                url = next(iter(self.links_to_visit))
                 depth = self.links_to_visit[url]
         # if len(self.links_to_visit) > 0 :
         #     # print(f"\n\nnext link to visit : {list(self.links_to_visit.keys())[0]}\n value = {self.links_to_visit.get(list(self.links_to_visit.keys())[0])}")
