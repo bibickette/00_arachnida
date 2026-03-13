@@ -3,7 +3,6 @@ import os
 import requests
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
-from collections import deque
 
 from src.ArgumentParser import ArgumentParser
 
@@ -58,7 +57,6 @@ class Scraper:
         if not image_extension in self.EXTENSION_IMG :
             return
         full_path = self.build_full_path(url, image_extension)
-        # print(f"chemin de dl de limage complet : {full_path}")
 
         with open(full_path, "wb") as file:
             for chunk in response.iter_content(chunk_size=8192):
@@ -66,26 +64,30 @@ class Scraper:
         self.nb_files_downloaded += 1
         print(f"{self.GREEN}File downloaded successfully : {full_path}{self.RESET}")
     
+    
     def extract_from_balise(self, url: str, soup, depth : int, balise : str) -> None :
         supposedly_links = soup.find_all(balise)  # get tous les urls
         iterator = 0
         for link in supposedly_links:
-            link = link.get("href") if balise == "a" else link.get("src")
+            if balise == "a" :
+                link = link.get("href") 
+            else :
+                link = link.get("src")
             if link:
                 if not link.startswith("#"):
                     link_to_visit = urljoin(url, link)
                     if not link_to_visit in self.links_to_visit and not link_to_visit in self.visited_links:
-                        if depth - 1 >= 0 :
                             # print(f"link url {iterator}: {link_to_visit}")
                             self.links_to_visit[link_to_visit] = depth - 1
                             iterator += 1
         if iterator != 0 :
             print(f"{self.GREEN}Number of new balise '{balise}' found = {iterator} {self.RESET}")
 
+
     def extract_links(self, url: str, response, depth : int) -> None :
         soup = BeautifulSoup(response.text, "html.parser")
-        self.extract_from_balise(url, soup, depth, "a")
         self.extract_from_balise(url, soup, depth, "img")
+        self.extract_from_balise(url, soup, depth, "a")
             
 
     def scrape(self, url, depth : int) -> None:
@@ -101,7 +103,8 @@ class Scraper:
             # print(f"content type : {content_type}")
 
             if "text/html" in content_type:
-                self.extract_links(url, response, depth)
+                if depth - 1 >= 0 :
+                    self.extract_links(url, response, depth)
             
             elif "image/" in content_type:
                 self.download_image(response, list(self.links_to_visit.keys())[0], content_type.split("/")[1])
