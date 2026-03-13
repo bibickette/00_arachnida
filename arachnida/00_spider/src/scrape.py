@@ -57,12 +57,12 @@ class Scraper:
         if not image_extension in self.EXTENSION_IMG :
             return
         full_path = self.build_full_path(url, image_extension)
-
-        with open(full_path, "wb") as file:
-            for chunk in response.iter_content(chunk_size=8192):
-                file.write(chunk)
-        self.nb_files_downloaded += 1
-        print(f"{self.GREEN}File downloaded successfully : {full_path}{self.RESET}")
+        if not os.path.exists(full_path):
+            with open(full_path, "wb") as file:
+                for chunk in response.iter_content(chunk_size=8192):
+                    file.write(chunk)
+            self.nb_files_downloaded += 1
+            print(f"{self.GREEN}File downloaded successfully : {full_path}{self.RESET}")
     
     
     def extract_from_balise(self, url: str, soup, depth : int, balise : str) -> None :
@@ -77,9 +77,9 @@ class Scraper:
                 if not link.startswith("#"):
                     link_to_visit = urljoin(url, link)
                     if not link_to_visit in self.links_to_visit and not link_to_visit in self.visited_links:
-                            # print(f"link url {iterator}: {link_to_visit}")
-                            self.links_to_visit[link_to_visit] = depth - 1
-                            iterator += 1
+                        # print(f"link url {iterator}: {link_to_visit}")
+                        self.links_to_visit[link_to_visit] = depth - 1
+                        iterator += 1
         if iterator != 0 :
             print(f"{self.GREEN}Number of new balise '{balise}' found = {iterator} {self.RESET}")
 
@@ -91,29 +91,29 @@ class Scraper:
             
 
     def scrape(self, url, depth : int) -> None:
-        
-        if url in self.visited_links :
-            return
-        try:
-            print(f"Depth = {depth} | URL : {url}")
-            response = requests.get(url, headers=self.HEADERS, timeout=3)
-            response.raise_for_status()
-            
-            content_type = response.headers.get("Content-type")
-            # print(f"content type : {content_type}")
+        while(len(self.links_to_visit) > 0) :
+            try:
+                print(f"Depth = {depth} | URL : {url}")
+                response = requests.get(url, headers=self.HEADERS, timeout=3)
+                response.raise_for_status()
+                
+                content_type = response.headers.get("Content-Type")
+                # print(f"content type : {content_type}")
+                if "text/html" in content_type:
+                    if depth - 1 >= 0 :
+                        self.extract_links(url, response, depth)
+                
+                elif "image/" in content_type:
+                    self.download_image(response, list(self.links_to_visit.keys())[0], content_type.split("/")[1])
 
-            if "text/html" in content_type:
-                if depth - 1 >= 0 :
-                    self.extract_links(url, response, depth)
-            
-            elif "image/" in content_type:
-                self.download_image(response, list(self.links_to_visit.keys())[0], content_type.split("/")[1])
+            except requests.exceptions.RequestException as e:
+                print(f"{self.RED}Error fetching URL: {e}{self.RESET}")
 
-        except requests.exceptions.RequestException as e:
-            print(f"{self.RED}Error fetching URL: {e}{self.RESET}")
-
-        self.visited_links.add(url)
-        del self.links_to_visit[url]
-        if len(self.links_to_visit) > 0 :
-            # print(f"\n\nnext link to visit : {list(self.links_to_visit.keys())[0]}\n value = {self.links_to_visit.get(list(self.links_to_visit.keys())[0])}")
-            self.scrape(list(self.links_to_visit.keys())[0], self.links_to_visit.get(list(self.links_to_visit.keys())[0]))
+            self.visited_links.add(url)
+            del self.links_to_visit[url]
+            if len(self.links_to_visit) > 0 :
+                url = list(self.links_to_visit.keys())[0]
+                depth = self.links_to_visit[url]
+        # if len(self.links_to_visit) > 0 :
+        #     # print(f"\n\nnext link to visit : {list(self.links_to_visit.keys())[0]}\n value = {self.links_to_visit.get(list(self.links_to_visit.keys())[0])}")
+        #     self.scrape(list(self.links_to_visit.keys())[0], self.links_to_visit.get(list(self.links_to_visit.keys())[0]))
