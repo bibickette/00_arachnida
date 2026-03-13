@@ -16,7 +16,7 @@ def main() -> int:
     
     try:
         spider = Scraper(args)
-        spider.scrape(args.url)
+        spider.scrape(spider.url, spider.depth)
         spider.print_total()
     except KeyboardInterrupt:
         print(f"{RED}Scraping interrupted with CTRL+C.{RESET}")

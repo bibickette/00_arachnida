@@ -19,12 +19,11 @@ class Scraper:
         self.depth = args.depth
         self.path = args.path
 
-        self.links_to_visit = deque()
-        self.links_to_visit.append(self.url)
+        self.links_to_visit = dict() # dict pour stocker url : depth
+        self.links_to_visit[self.url] = 0
         self.visited_links = set()  # pour eviter de visiter plusieurs fois le meme lien
-        # self.file_downloaded = set()  # pour eviter de dl plusieurs fois la meme image
         self.nb_files_downloaded = 0
-        # self.nb_links_visited = 0
+        
 
     def print_image_info(self, extension : str, hostname : str, path :  str, img_name : str) ->  None :
         print(f"cest une image de type : {extension}")
@@ -63,14 +62,10 @@ class Scraper:
         self.nb_files_downloaded += 1
         print("File downloaded successfully.")
         
-    def extract_links(self, url: str, response) -> None :
+    def extract_links(self, url: str, response, depth : int) -> None :
         soup = BeautifulSoup(response.text, "html.parser")
         # print(f"soup : {soup}")
         supposedly_links = soup.find_all("a")  # get tous les urls
-        supposedly_img = soup.find_all("img")  # get tous les src
-        print(
-            f"number of links found : {len(supposedly_links)}\nnumber of images found : {len(supposedly_img)}"
-        )
         iterator = 0
         for link in supposedly_links:
             link = link.get("href")
@@ -79,40 +74,49 @@ class Scraper:
                     iterator += 1
                     link_to_visit = urljoin(url, link)
                     if not link_to_visit in self.links_to_visit and not link_to_visit in self.visited_links:
-                        print(f"link url {iterator}: {link}")
-                        self.links_to_visit.append(link_to_visit)
-        iterator = 0
+                        if depth - 1 >= 0 :
+                            print(f"link url {iterator}: {link}")
+                            self.links_to_visit[link_to_visit] = depth - 1
         
+        supposedly_img = soup.find_all("img")  # get tous les src
+        iterator = 0
         for src in supposedly_img:
             src = src.get("src")
             if src:
                 img_to_visit = urljoin(url, src)
                 if not img_to_visit in self.links_to_visit and not img_to_visit in self.visited_links:
-                    print(f"image {iterator}: {src}")
-                    self.links_to_visit.append(img_to_visit)
+                    if depth - 1 >= 0 :
+                        print(f"image {iterator}: {src}")
+                        self.links_to_visit[img_to_visit] = depth - 1
                 iterator += 1
         # print(f"images found : {iterator}")
-        # print(f"links to visit found : {self.links_to_visit}")
+        print(f"links to visit found : {self.links_to_visit}")
         # print(f"total links to visit : {len(self.links_to_visit)}")
+        print(
+            f"number of links found : {len(supposedly_links)}\nnumber of images found : {len(supposedly_img)}"
+        )
 
-    def scrape(self, url) -> None:
+    def scrape(self, url, depth : int) -> None:
         if url in self.visited_links :
             return
+        
         response = requests.get(url, headers=self.HEADERS, timeout=3)
-        print(f"\n\nURL : {url} | Status code : {response.status_code}\n")
+        print(f"\n\nURL : {url} | Status code : {response.status_code} | Depth = {depth}\n")
         response.raise_for_status()
         
         content_type = response.headers.get("Content-type")
         print(f"content type : {content_type}")
 
         if "text/html" in content_type:
-            self.extract_links(url, response)
+            self.extract_links(url, response, depth)
         
         elif "image/" in content_type:
-            self.download_image(response, self.links_to_visit[0], content_type.split("/")[1])
+            self.download_image(response, list(self.links_to_visit.keys())[0], content_type.split("/")[1])
             # self.download_image(response, self.links_to_visit[0], content_type.split("/")[1])
             # print(f"links to visit after download img: {self.links_to_visit}")
         self.visited_links.add(url)
-        self.links_to_visit.popleft()
-        # if len(self.links_to_visit) > 0 :
-        #     self.scrape(self.links_to_visit[0])
+        del self.links_to_visit[url]
+        # self.links_to_visit.popleft()
+        if len(self.links_to_visit) > 0 :
+            print(f"next link to visit : {list(self.links_to_visit.keys())[0]}\n value = {self.links_to_visit.get(list(self.links_to_visit.keys())[0])}")
+            self.scrape(list(self.links_to_visit.keys())[0], self.links_to_visit.get(list(self.links_to_visit.keys())[0]))
