@@ -15,6 +15,7 @@ class ArgumentParser:
     DEFAULT_PATH = "./data/"
 
     def __init__(self, argv: list[str]) -> None:
+        self.download = False
         self.depth = None
         self.path = None
         self.url = None
@@ -49,9 +50,7 @@ class ArgumentParser:
         return iterator
 
     def parser_result_verify(self, char_used: set) -> None:
-        if not "r" in char_used:
-            raise ValueError(f"Flag -r is needed")
-        elif "l" in char_used and (self.depth is None):
+        if "l" in char_used and (self.depth is None):
             raise ValueError(f"Missing depth value for -l flag")
         elif "p" in char_used and (self.path is None):
             raise ValueError(f"Missing path value for -p flag")
@@ -60,6 +59,8 @@ class ArgumentParser:
         elif self.depth is not None and (self.depth < 0 or self.depth > self.MAX_DEPTH):
             raise ValueError(f"Depth value must be between 0 and {self.MAX_DEPTH}")
 
+        if "r" in char_used:
+            self.download = True
         if self.depth is None:
             self.depth = self.DEFAULT_DEPTH
         if self.path is None:
@@ -108,7 +109,7 @@ class ArgumentParser:
 
         if argc > 7:
             raise ValueError(f"Maximum of 6 arguments")
-        elif argc < 3:
-            raise ValueError(f"Minimum of 3 arguments")
+        elif argc < 2:
+            raise ValueError(f"Minimum of 2 arguments")
 
         self.validate_flag_arguments(argv[1:])

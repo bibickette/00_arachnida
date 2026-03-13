@@ -20,6 +20,7 @@ class Scraper:
 
 
     def __init__(self, args: ArgumentParser) -> None:
+        self.download = args.download
         self.url = args.url
         self.depth = args.depth
         self.path = args.path
@@ -28,9 +29,12 @@ class Scraper:
         self.session.headers.update(self.HEADERS)
 
         self.links_to_visit = dict() # dict pour stocker url : depth
-        self.links_to_visit[self.url] = 0
+        self.links_to_visit[self.url] = self.depth
         self.visited_links = set()  # pour eviter de visiter plusieurs fois le meme lien
         self.nb_files_downloaded = 0
+        
+        self.image_to_download = set() # pour stocker les urls des images a dl
+        self.img_found = 0
         
 
     def print_image_info(self, extension : str, hostname : str, path :  str, img_name : str) ->  None :
@@ -43,10 +47,13 @@ class Scraper:
     def print_total(self) -> None:
         print(f"\nTotal links visited : {len(self.visited_links)}")
         print(f"Total files downloaded : {self.nb_files_downloaded}")
+        print(f"Total images found : {self.img_found}")
 
-
+    # ========================== DOWNLOAD IMAGES ==========================
+    
     def define_img_name(self, url: str, extension: str) -> str:
         return os.path.basename(urlparse(url).path) or f"image_without_name.{extension}"
+
 
     def build_full_path(self, url: str, image_extension: str) -> str:
         hostname = urlparse(url).hostname.strip("/")
@@ -59,25 +66,57 @@ class Scraper:
         # self.print_image_info(image_extension, hostname, path, img_name)
         return full_path
 
-    def download_image(self, response, url: str, image_extension: str) -> None:
-        if not image_extension in self.EXTENSION_IMG :
-            return
+
+    def write_image(self, response, url: str, image_extension: str) -> None:
         full_path = self.build_full_path(url, image_extension)
         with open(full_path, "wb") as file:
             for chunk in response.iter_content(chunk_size=8192):
                 file.write(chunk)
         self.nb_files_downloaded += 1
         print(f"{self.GREEN}Download success : {full_path}{self.RESET}")       
+
+
+    def download_images(self) -> None:
+        print(f"{self.GREEN}Start downloading images.{self.RESET}")
+        for img_url in self.image_to_download:
+            try:
+                response = self.session.get(img_url, stream=True, timeout=3)
+                response.raise_for_status()
+                content_type = response.headers.get("Content-Type")
+                if "image/" in content_type:
+                    extension = content_type.split("/")[-1]
+                    if extension in self.EXTENSION_IMG :
+                        self.write_image(response, img_url, extension)
+                        self.nb_files_downloaded += 1
+                    else :
+                        raise ValueError(f"{self.RED}Unsupported image format: {extension}{self.RESET}")
+            except requests.exceptions.RequestException as e:
+                print(f"{self.RED}Error downloading image: {e}{self.RESET}", file=sys.stderr)
+            except ValueError as e:
+                print(f"{self.YELLOW}Warning : {e}{self.RESET}", file=sys.stderr)
     
-    
-    def extract_from_balise(self, url: str, soup, depth : int, balise : str) -> None :
-        supposedly_links = soup.find_all(balise)  # get tous les urls
+    # ========================== GET ALL URLS ==========================
+
+    def extract_all_images(self, url: str, soup) -> None :
+        supposedly_imgs = soup.find_all("img")  # get tous les urls
+        iterator = 0
+        for img in supposedly_imgs:
+            img = img.get("src")
+            if img:
+                img_to_visit = urljoin(url, img)
+                if not img_to_visit in self.image_to_download:
+                    self.image_to_download.add(img_to_visit)
+                    self.img_found += 1
+                    iterator += 1
+        if iterator != 0 :
+            print(f"{self.GREEN}Number of new images found = {iterator} {self.RESET}")
+
+
+    def extract_all_links(self, url: str, soup, depth : int) -> None :
+        supposedly_links = soup.find_all("a")  # get tous les urls
         iterator = 0
         for link in supposedly_links:
-            if balise == "a" :
-                link = link.get("href") 
-            else :
-                link = link.get("src")
+            link = link.get("href") 
             if link:
                 if not link.startswith("#"):
                     link_to_visit = urljoin(url, link)
@@ -85,32 +124,27 @@ class Scraper:
                         self.links_to_visit[link_to_visit] = depth
                         iterator += 1
         if iterator != 0 :
-            print(f"{self.GREEN}Number of new balise '{balise}' found = {iterator} {self.RESET}")
-
-
-    def extract_links(self, url: str, response, depth : int) -> None :
-        soup = BeautifulSoup(response.text, "html.parser")
-        self.extract_from_balise(url, soup, depth, "img")
-        if depth > 0 :
-            self.extract_from_balise(url, soup, depth, "a")
+            print(f"{self.GREEN}Number of new links found = {iterator} {self.RESET}")
+       
             
-
-    def scrape(self, url, depth : int) -> None:
+    def extract_url(self, url: str, response, depth : int) -> None :
+        soup = BeautifulSoup(response.text, "html.parser")
+        self.extract_all_images(url, soup)
+        if depth >= 0 :
+            self.extract_all_links(url, soup, depth)
+         
+            
+    def crawl_url(self, url: str, depth : int) -> None:
         while(url) :
             try:
                 print(f"Depth = {depth} | URL : {url}")
-                response = self.session.get(url, timeout=3)
+                response = self.session.get(url, stream=True, timeout=3)
                 response.raise_for_status()
                 
                 content_type = response.headers.get("Content-Type")
-                # print(f"content type : {content_type}")
                 if "text/html" in content_type:
-                    if depth - 1 >= 0 :
-                        self.extract_links(url, response, depth - 1)
+                    self.extract_url(url, response, depth - 1)
                 
-                elif "image/" in content_type:
-                    self.download_image(response, url, content_type.split("/")[1])
-
             except requests.exceptions.RequestException as e:
                 print(f"{self.RED}Error fetching URL: {e}{self.RESET}", file=sys.stderr)
             except ValueError as e:
@@ -123,4 +157,11 @@ class Scraper:
                 depth = self.links_to_visit[url]
             else :
                 url = None
-                
+
+
+    def scrape(self) -> None:
+        self.crawl_url(self.url, self.depth)
+        if self.download :
+            self.download_images()
+        else :
+            print(f"{self.YELLOW}Download option not enabled, skipping dl.{self.RESET}")

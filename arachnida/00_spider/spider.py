@@ -11,13 +11,13 @@ def main() -> int:
     try:
         args = ArgumentParser(sys.argv)
     except ValueError as e:
-        print(f"Usage: spider.py -r [-l DEPTH] [-p PATH] URL\n\n{RED}Error : {e}{RESET}", file=sys.stderr)
+        print(f"Usage: spider.py [-r] [-l DEPTH] [-p PATH] URL\n\n{RED}Error : {e}{RESET}", file=sys.stderr)
         return 1
     
     date = time.time()
     try:
         spider = Scraper(args)
-        spider.scrape(spider.url, spider.depth)
+        spider.scrape()
         spider.print_total()
         print(f"Time taken for scraping : {int(time.time() - date)} seconds")
         args.print_args()
