@@ -159,15 +159,20 @@ class Scraper:
 
 
     def scrape(self) -> None:
-        self.crawl_url(self.url, self.depth)
-        print(f"\n{self.GREEN}====== Crawling completed. ======{self.RESET}\n")
-        if self.img_found == 0:
-            print(f"{self.YELLOW}No images found to download.{self.RESET}")
-            return
-        print(f"{self.YELLOW}Do you want to download {self.img_found} images? [y/n] {self.RESET}", end="")
-        input_user = input().strip().lower()
-        if input_user != "y":
-            print(f"{self.YELLOW}Download cancelled by user.{self.RESET}")
-            return
-        self.download_images()
+        try:
+            self.crawl_url(self.url, self.depth)
+            print(f"\n{self.GREEN}====== Crawling completed. ======{self.RESET}\n")
+            if self.img_found == 0:
+                print(f"{self.YELLOW}No images found to download.{self.RESET}")
+                return
+            print(f"{self.YELLOW}Do you want to download {self.img_found} images? [y/n] {self.RESET}", end="")
+            input_user = input().strip().lower()
+            if input_user != "y":
+                print(f"{self.YELLOW}Download cancelled by user.{self.RESET}")
+                return
+            self.download_images()
+        except KeyboardInterrupt:
+            print(f"{self.RED}Scraping interrupted with CTRL+C.{self.RESET}")
+            return 1
+        return 0
     

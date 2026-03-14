@@ -14,19 +14,13 @@ def main() -> int:
         print(f"Usage: spider.py [-r] [-l DEPTH] [-p PATH] URL\n\n{RED}Error : {e}{RESET}", file=sys.stderr)
         return 1
     
-    ret = 0
-    
     date = time.time()
-    try:
-        spider = Scraper(args)
-        spider.scrape()
-    except KeyboardInterrupt:
-        print(f"{RED}Scraping interrupted with CTRL+C.{RESET}")
-        ret = 1
-        
-    spider.print_total()
-    print(f"Time taken for scraping : {int(time.time() - date)} seconds")
+    spider = Scraper(args)
+    ret = spider.scrape()
+    
     args.print_args()
+    spider.print_total()
+    print(f"\nTime taken for scraping : {(time.time() - date):.2f} seconds")
     
     return ret
 
