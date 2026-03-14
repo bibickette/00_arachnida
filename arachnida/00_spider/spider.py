@@ -14,20 +14,21 @@ def main() -> int:
         print(f"Usage: spider.py [-r] [-l DEPTH] [-p PATH] URL\n\n{RED}Error : {e}{RESET}", file=sys.stderr)
         return 1
     
+    ret = 0
+    
     date = time.time()
     try:
         spider = Scraper(args)
         spider.scrape()
-        spider.print_total()
-        print(f"Time taken for scraping : {int(time.time() - date)} seconds")
-        args.print_args()
     except KeyboardInterrupt:
         print(f"{RED}Scraping interrupted with CTRL+C.{RESET}")
-        print(f"Time taken for scraping : {int(time.time() - date)} seconds")
-        spider.print_total()
-        return 1
-
-    return 0
+        ret = 1
+        
+    spider.print_total()
+    print(f"Time taken for scraping : {int(time.time() - date)} seconds")
+    args.print_args()
+    
+    return ret
 
 if __name__ == "__main__":
     sys.exit(main()) #  raise SystemExit(main()) ; cest un equivalent pour return un code retour dans python

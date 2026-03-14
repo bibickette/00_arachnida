@@ -20,7 +20,7 @@ class Scraper:
 
 
     def __init__(self, args: ArgumentParser) -> None:
-        self.download = args.download
+        self.recursive = args.recursive
         self.url = args.url
         self.depth = args.depth
         self.path = args.path
@@ -31,10 +31,10 @@ class Scraper:
         self.links_to_visit = dict() # dict pour stocker url : depth
         self.links_to_visit[self.url] = self.depth
         self.visited_links = set()  # pour eviter de visiter plusieurs fois le meme lien
-        self.nb_files_downloaded = 0
         
         self.image_to_download = set() # pour stocker les urls des images a dl
         self.img_found = 0
+        self.nb_files_downloaded = 0
         
 
     def print_image_info(self, extension : str, hostname : str, path :  str, img_name : str) ->  None :
@@ -46,8 +46,8 @@ class Scraper:
         
     def print_total(self) -> None:
         print(f"\nTotal links visited : {len(self.visited_links)}")
-        print(f"Total files downloaded : {self.nb_files_downloaded}")
         print(f"Total images found : {self.img_found}")
+        print(f"Total files downloaded : {self.nb_files_downloaded}")
 
     # ========================== DOWNLOAD IMAGES ==========================
     
@@ -61,7 +61,7 @@ class Scraper:
         path = urlparse(url).path.replace(img_name, "").strip("/")
         full_path = os.path.join(self.path, hostname, path, img_name)  # joindre intelligement les parties du chemin pour créer un chemin complet
         if os.path.exists(full_path):
-            raise ValueError(f"Skipping download, file already exists")
+            raise ValueError(f"Skipping download, file already exists : {full_path}")
         os.makedirs(os.path.join(self.path, hostname, path), exist_ok=True)  # creer les dossiers si ils n'existent pas deja, exist_ok=True evite de lever une exception si le dossier existe deja
         # self.print_image_info(image_extension, hostname, path, img_name)
         return full_path
@@ -87,7 +87,6 @@ class Scraper:
                     extension = content_type.split("/")[-1]
                     if extension in self.EXTENSION_IMG :
                         self.write_image(response, img_url, extension)
-                        self.nb_files_downloaded += 1
                     else :
                         raise ValueError(f"{self.RED}Unsupported image format: {extension}{self.RESET}")
             except requests.exceptions.RequestException as e:
@@ -130,7 +129,7 @@ class Scraper:
     def extract_url(self, url: str, response, depth : int) -> None :
         soup = BeautifulSoup(response.text, "html.parser")
         self.extract_all_images(url, soup)
-        if depth >= 0 :
+        if depth >= 0 and self.recursive:
             self.extract_all_links(url, soup, depth)
          
             
@@ -161,7 +160,14 @@ class Scraper:
 
     def scrape(self) -> None:
         self.crawl_url(self.url, self.depth)
-        if self.download :
-            self.download_images()
-        else :
-            print(f"{self.YELLOW}Download option not enabled, skipping dl.{self.RESET}")
+        print(f"\n{self.GREEN}====== Crawling completed. ======{self.RESET}\n")
+        if self.img_found == 0:
+            print(f"{self.YELLOW}No images found to download.{self.RESET}")
+            return
+        print(f"{self.YELLOW}Do you want to download {self.img_found} images? [y/n] {self.RESET}", end="")
+        input_user = input().strip().lower()
+        if input_user != "y":
+            print(f"{self.YELLOW}Download cancelled by user.{self.RESET}")
+            return
+        self.download_images()
+    

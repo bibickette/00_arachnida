@@ -15,7 +15,7 @@ class ArgumentParser:
     DEFAULT_PATH = "./data/"
 
     def __init__(self, argv: list[str]) -> None:
-        self.download = False
+        self.recursive = False
         self.depth = None
         self.path = None
         self.url = None
@@ -60,7 +60,7 @@ class ArgumentParser:
             raise ValueError(f"Depth value must be between 0 and {self.MAX_DEPTH}")
 
         if "r" in char_used:
-            self.download = True
+            self.recursive = True
         if self.depth is None:
             self.depth = self.DEFAULT_DEPTH
         if self.path is None:
