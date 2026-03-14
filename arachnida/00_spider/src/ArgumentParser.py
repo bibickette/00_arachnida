@@ -31,7 +31,7 @@ class ArgumentParser:
         except ValueError:
             self.depth = None
 
-    def options_verify(self, value: str, possible_argument: str, iterator: int) -> int:
+    def options_verify(self, char_used : set, value: str, possible_argument: str, iterator: int) -> int:
         if value[len(value) - 1] == "r":
             return iterator
 
@@ -39,6 +39,8 @@ class ArgumentParser:
             raise ValueError(f"Missing argument for flag {value}")
 
         if value[len(value) - 1] == "l":
+            if not "r" in char_used:
+                raise ValueError(f"Flag -l cannot be used without -r") 
             self.parse_depth(possible_argument)
             iterator += 1
 
@@ -92,10 +94,11 @@ class ArgumentParser:
             arg = argv[iterator]
             if arg.startswith("-"):
                 char_used = self.is_valid_flag(arg, char_used)
-                arg_to_send = None
                 if iterator + 1 < len(argv):
                     arg_to_send = argv[iterator + 1]
-                iterator = self.options_verify(arg, arg_to_send, iterator)
+                else :
+                    arg_to_send = None  
+                iterator = self.options_verify(char_used,arg, arg_to_send, iterator)
             else:
                 self.url = arg
                 if iterator + 1 != len(argv):
