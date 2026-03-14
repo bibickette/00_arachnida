@@ -22,7 +22,10 @@ class Scraper:
     def __init__(self, args: ArgumentParser) -> None:
         self.recursive = args.recursive
         self.url = args.url
-        self.depth = args.depth
+        if not self.recursive:
+            self.depth = 0
+        else :
+            self.depth = args.depth
         self.path = args.path
         
         self.session = requests.Session()
@@ -76,35 +79,36 @@ class Scraper:
         print(f"{self.GREEN}Download success : {full_path}{self.RESET}")       
 
 
-    def download_images(self) -> None:
-        print(f"{self.GREEN}Start downloading images.{self.RESET}")
-        for img_url in self.image_to_download:
-            try:
-                response = self.session.get(img_url, stream=True, timeout=3)
-                response.raise_for_status()
-                content_type = response.headers.get("Content-Type")
-                if "image/" in content_type:
-                    extension = content_type.split("/")[-1]
-                    if extension in self.EXTENSION_IMG :
-                        self.write_image(response, img_url, extension)
-                    else :
-                        raise ValueError(f"{self.RED}Unsupported image format: {extension}{self.RESET}")
-            except requests.exceptions.RequestException as e:
-                print(f"{self.RED}Error downloading image: {e}{self.RESET}", file=sys.stderr)
-            except ValueError as e:
-                print(f"{self.YELLOW}Warning : {e}{self.RESET}", file=sys.stderr)
+    # def download_images(self) -> None:
+    #     print(f"{self.GREEN}Start downloading images.{self.RESET}")
+    #     for img_url in self.image_to_download:
+    #         try:
+    #             response = self.session.get(img_url, stream=True, timeout=3)
+    #             response.raise_for_status()
+    #             content_type = response.headers.get("Content-Type")
+    #             if "image/" in content_type:
+    #                 extension = content_type.split("/")[-1]
+    #                 if extension in self.EXTENSION_IMG :
+    #                     self.write_image(response, img_url, extension)
+    #                 else :
+    #                     raise ValueError(f"{self.RED}Unsupported image format: {extension}{self.RESET}")
+    #         except requests.exceptions.RequestException as e:
+    #             print(f"{self.RED}Error downloading image: {e}{self.RESET}", file=sys.stderr)
+    #         except ValueError as e:
+    #             print(f"{self.YELLOW}Warning : {e}{self.RESET}", file=sys.stderr)
     
     # ========================== GET ALL URLS ==========================
 
-    def extract_all_images(self, url: str, soup) -> None :
+    def extract_all_images(self, url: str, soup, depth: int) -> None :
         supposedly_imgs = soup.find_all("img")  # get tous les urls
         iterator = 0
         for img in supposedly_imgs:
             img = img.get("src")
             if img:
                 img_to_visit = urljoin(url, img)
-                if not img_to_visit in self.image_to_download:
-                    self.image_to_download.add(img_to_visit)
+                if not img_to_visit in self.links_to_visit and not img_to_visit in self.visited_links:
+                    # self.image_to_download.add(img_to_visit)
+                    self.links_to_visit[img_to_visit] = depth
                     self.img_found += 1
                     iterator += 1
         if iterator != 0 :
@@ -128,9 +132,9 @@ class Scraper:
             
     def extract_url(self, url: str, response, depth : int) -> None :
         soup = BeautifulSoup(response.text, "html.parser")
-        self.extract_all_images(url, soup)
-        if depth >= 0 and self.recursive:
-            self.extract_all_links(url, soup, depth)
+        self.extract_all_images(url, soup, depth)
+        if depth - 1 >= 0 and self.recursive:
+            self.extract_all_links(url, soup, depth - 1)
          
             
     def crawl_url(self, url: str, depth : int) -> None:
@@ -142,8 +146,13 @@ class Scraper:
                 
                 content_type = response.headers.get("Content-Type")
                 if "text/html" in content_type:
-                    self.extract_url(url, response, depth - 1)
-                
+                    self.extract_url(url, response, depth)
+                elif "image/" in content_type:
+                    extension = content_type.split("/")[-1]
+                    if extension in self.EXTENSION_IMG :
+                        self.write_image(response, url, extension)
+                    else :
+                        raise ValueError(f"{self.RED}Unsupported image format: {extension}{self.RESET}")
             except requests.exceptions.RequestException as e:
                 print(f"{self.RED}Error fetching URL: {e}{self.RESET}", file=sys.stderr)
             except ValueError as e:
@@ -161,16 +170,16 @@ class Scraper:
     def scrape(self) -> None:
         try:
             self.crawl_url(self.url, self.depth)
-            print(f"\n{self.GREEN}====== Crawling completed. ======{self.RESET}\n")
-            if self.img_found == 0:
-                print(f"{self.YELLOW}No images found to download.{self.RESET}")
-                return
-            print(f"{self.YELLOW}Do you want to download {self.img_found} images? [y/n] {self.RESET}", end="")
-            input_user = input().strip().lower()
-            if input_user != "y":
-                print(f"{self.YELLOW}Download cancelled by user.{self.RESET}")
-                return
-            self.download_images()
+            # print(f"\n{self.GREEN}====== Crawling completed. ======{self.RESET}\n")
+            # if self.img_found == 0:
+            #     print(f"{self.YELLOW}No images found to download.{self.RESET}")
+            #     return
+            # print(f"{self.YELLOW}Do you want to download {self.img_found} images? [y/n] {self.RESET}", end="")
+            # input_user = input().strip().lower()
+            # if input_user != "y":
+            #     print(f"{self.YELLOW}Download cancelled by user.{self.RESET}")
+            #     return
+            # self.download_images()
         except KeyboardInterrupt:
             print(f"{self.RED}Scraping interrupted with CTRL+C.{self.RESET}")
             return 1
