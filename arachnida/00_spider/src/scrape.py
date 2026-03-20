@@ -184,7 +184,6 @@ class Scraper:
         self.queue = Queue() # conserve les liens
         self.queue.put((self.url, self.depth))
         
-        self.in_queue_links = set() # pour eviter de mettre plusieurs fois le meme lien dans la queue
         self.visited_links = set()  # pour eviter de visiter plusieurs fois le meme lien
         
         self.img_found = 0
@@ -242,10 +241,8 @@ class Scraper:
             img = img.get("src")
             if img:
                 img_to_visit = urljoin(url, img)
-                if not img_to_visit in self.visited_links and not img_to_visit in self.in_queue_links:
+                if not img_to_visit in self.visited_links:
                     self.queue.put((img_to_visit, depth))
-                    self.in_queue_links.add(img_to_visit)
-                    self.img_found += 1
                     iterator += 1
         if iterator != 0 :
             print(f"{self.GREEN}Number of new images found = {iterator} {self.RESET}")
@@ -259,9 +256,8 @@ class Scraper:
             if link:
                 if not link.startswith("#"):
                     link_to_visit = urljoin(url, link)
-                    if not link_to_visit in self.visited_links and not link_to_visit in self.in_queue_links:
+                    if not link_to_visit in self.visited_links:
                         self.queue.put((link_to_visit, depth))
-                        self.in_queue_links.add(link_to_visit)
                         iterator += 1
         if iterator != 0 :
             print(f"{self.GREEN}Number of new links found = {iterator} {self.RESET}")
@@ -272,14 +268,14 @@ class Scraper:
         self.extract_all_images(url, soup, depth)
         if depth - 1 >= 0 and self.recursive:
             self.extract_all_links(url, soup, depth - 1)
-        # print(f"queue size : {self.queue.qsize()}") # pour debug, affiche la taille de la queue
-        # print(f"queue content : {list(self.queue.queue)}") # pour debug, affiche le contenu de la queue
          
             
     def crawl_url(self) -> None:
         while(not self.queue.empty()) :
             if not self.queue.empty():
                 url, depth = self.queue.get() # quand on get il est automatiquement retiré de la queue
+                if url in self.visited_links:
+                    continue
             try:
                 print(f"Depth = {depth} | URL : {url}")
                 response = self.session.get(url, stream=True, timeout=3)
@@ -290,13 +286,13 @@ class Scraper:
                     self.extract_url(url, response, depth)
                 elif "image/" in content_type:
                     extension = content_type.split("/")[1]
+                    self.img_found += 1
                     if extension in self.EXTENSION_IMG :
                         self.write_image(response, url, extension)
                     else :
                         print(f"{self.RED}Unsupported image format: {extension}{self.RESET}")
             except requests.exceptions.RequestException as e:
                 print(f"{self.RED}Error fetching URL: {e}{self.RESET}", file=sys.stderr)
-
             self.visited_links.add(url)
 
 
