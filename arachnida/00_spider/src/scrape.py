@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
+from concurrent.futures import ThreadPoolExecutor
 import os
-from queue import Queue
+from queue import Empty, Queue
 import sys
+import threading
+from time import time
 import requests
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
@@ -184,10 +187,16 @@ class Scraper:
         self.queue = Queue() # conserve les liens
         self.queue.put((self.url, self.depth))
         
+        self.visited_lock = threading.Lock()
         self.visited_links = set()  # pour eviter de visiter plusieurs fois le meme lien
         
+        self.img_found_lock = threading.Lock()
         self.img_found = 0
+        
+        self.nb_files_downloaded_lock = threading.Lock()
         self.nb_files_downloaded = 0
+        
+        self.stop_event = threading.Event()
         
 
     def print_image_info(self, extension : str, hostname : str, path :  str, img_name : str) ->  None :
@@ -199,7 +208,7 @@ class Scraper:
         
     def print_total(self) -> None:
         print(f"\nTotal links visited : {len(self.visited_links)}")
-        print(f"Total images found : {self.img_found}")
+        print(f"Total images visited : {self.img_found}")
         print(f"Total files downloaded : {self.nb_files_downloaded}")
 
     # ========================== DOWNLOAD IMAGES ==========================
@@ -228,7 +237,8 @@ class Scraper:
         with open(full_path, "wb") as file:
             for chunk in response.iter_content(chunk_size=8192):
                 file.write(chunk)
-        self.nb_files_downloaded += 1
+        with self.nb_files_downloaded_lock:
+            self.nb_files_downloaded += 1
         print(f"{self.GREEN}Download success : {full_path}{self.RESET}")       
 
 
@@ -268,41 +278,52 @@ class Scraper:
         self.extract_all_images(url, soup, depth)
         if depth - 1 >= 0 and self.recursive:
             self.extract_all_links(url, soup, depth - 1)
-         
+
             
-    def crawl_url(self) -> None:
-        while(not self.queue.empty()) :
-            if not self.queue.empty():
-                url, depth = self.queue.get() # quand on get il est automatiquement retiré de la queue
-                if url in self.visited_links:
-                    continue
+    def worker(self) -> None:
+        while(not self.stop_event.is_set()) :
             try:
+                url, depth = self.queue.get(timeout=5) # quand on get il est automatiquement retiré de la queue, timeout pour éviter de rester bloqué indéfiniment si la queue est vide
+            except Empty:
+                return
+            
+            try:
+                with self.visited_lock:
+                    if url in self.visited_links:
+                        continue
+                    self.visited_links.add(url)
                 print(f"Depth = {depth} | URL : {url}")
-                response = self.session.get(url, stream=True, timeout=3)
+                response = self.session.get(url, stream=True, timeout=5)
                 response.raise_for_status()
-                
                 content_type = response.headers.get("Content-Type")
                 if "text/html" in content_type:
                     self.extract_url(url, response, depth)
                 elif "image/" in content_type:
                     extension = content_type.split("/")[1]
-                    self.img_found += 1
+                    with self.img_found_lock:
+                        self.img_found += 1
                     if extension in self.EXTENSION_IMG :
                         self.write_image(response, url, extension)
                     else :
                         print(f"{self.RED}Unsupported image format: {extension}{self.RESET}")
             except requests.exceptions.RequestException as e:
                 print(f"{self.RED}Error fetching URL: {e}{self.RESET}", file=sys.stderr)
-            self.visited_links.add(url)
-
+            finally:
+                self.queue.task_done() # indique que la tache est terminée pour le lien traité
 
 
     def scrape(self) -> None:
         try:
-            self.crawl_url()
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                for _ in range(10):
+                    executor.submit(self.worker)
+                self.queue.join()
+            # for future in futures:
+            #     result = future.result()
+            #     print(f"Worker finished with result: {result}") 
             # print(f"queue content : {list(self.queue.queue)}") # pour debug, affiche le contenu de la queue
-            
         except KeyboardInterrupt:
             print(f"{self.RED}Scraping interrupted with CTRL+C.{self.RESET}")
+            self.stop_event.set()
             return 1
         return 0
