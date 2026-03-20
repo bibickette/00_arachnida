@@ -210,17 +210,4 @@ class Scraper:
         return 0
     
     
-    
-# Arguments :
 
-# depth : 5
-# path : ./data/
-# url : https://shirtz.cool/
-# ==========
-
-# Total links visited : 1616
-# Total images visited : 1130
-# Total files downloaded : 1089
-# hostname : shirtz.cool
-
-# Time taken for scraping : 25.40 seconds
