@@ -31,6 +31,9 @@ class Scraper:
             self.depth = args.depth
         self.path = args.path
         
+        self.stay_on_same_hostname = True
+        self.hostname = urlparse(self.url).hostname.strip("/") # spider stay at the same hostname
+        
         self.session = requests.Session()
         self.session.headers.update(self.HEADERS)
 
@@ -49,9 +52,9 @@ class Scraper:
         self.stop_event = threading.Event()
         
 
-    def print_image_info(self, extension : str, hostname : str, path :  str, img_name : str) ->  None :
+    def print_image_info(self, extension : str, path :  str, img_name : str) ->  None :
         print(f"cest une image de type : {extension}")
-        print(f"nom de domaine/dossier : {hostname}")
+        print(f"nom de domaine/dossier : {self.hostname}")
         print(f"chemin sans nom : {path}")
         print(f"nom : {img_name}")
 
@@ -60,6 +63,7 @@ class Scraper:
         print(f"\nTotal links visited : {len(self.visited_links)}")
         print(f"Total images visited : {self.img_found}")
         print(f"Total files downloaded : {self.nb_files_downloaded}")
+        print(f"hostname : {self.hostname}")
 
     # ========================== DOWNLOAD IMAGES ==========================
     
@@ -68,15 +72,14 @@ class Scraper:
 
 
     def build_full_path(self, url: str, image_extension: str) -> str:
-        hostname = urlparse(url).hostname.strip("/")
         img_name = self.define_img_name(url, image_extension).strip("/")
         path = urlparse(url).path.replace(img_name, "").strip("/")
-        full_path = os.path.join(self.path, hostname, path, img_name)  # joindre intelligement les parties du chemin pour créer un chemin complet
+        full_path = os.path.join(self.path, self.hostname, path, img_name)  # joindre intelligement les parties du chemin pour créer un chemin complet
         if os.path.exists(full_path):
             print(f"{self.YELLOW}Skipping download, file already exists : {full_path}{self.RESET}")
             return None
-        os.makedirs(os.path.join(self.path, hostname, path), exist_ok=True)  # creer les dossiers si ils n'existent pas deja, exist_ok=True evite de lever une exception si le dossier existe deja
-        # self.print_image_info(image_extension, hostname, path, img_name)
+        os.makedirs(os.path.join(self.path, self.hostname, path), exist_ok=True)  # creer les dossiers si ils n'existent pas deja, exist_ok=True evite de lever une exception si le dossier existe deja
+        # self.print_image_info(image_extension, path, img_name)
         return full_path
 
 
@@ -101,9 +104,15 @@ class Scraper:
             img = img.get("src")
             if img:
                 img_to_visit = urljoin(url, img)
-                if not img_to_visit in self.visited_links:
-                    self.queue.put((img_to_visit, depth))
-                    iterator += 1
+                img_hostname = urlparse(img_to_visit).hostname
+                if img_hostname is None:
+                    continue
+                if self.stay_on_same_hostname and img_hostname.strip("/") != self.hostname:
+                        continue
+                with self.visited_lock:
+                    if not img_to_visit in self.visited_links:
+                        self.queue.put((img_to_visit, depth))
+                        iterator += 1
         if iterator != 0 :
             print(f"{self.GREEN}Number of new images found = {iterator} {self.RESET}")
 
@@ -116,9 +125,15 @@ class Scraper:
             if link:
                 if not link.startswith("#"):
                     link_to_visit = urljoin(url, link)
-                    if not link_to_visit in self.visited_links:
-                        self.queue.put((link_to_visit, depth))
-                        iterator += 1
+                    link_hostname = urlparse(link_to_visit).hostname
+                    if link_hostname is None:
+                        continue
+                    if self.stay_on_same_hostname and link_hostname.strip("/") != self.hostname:
+                        continue
+                    with self.visited_lock:
+                        if not link_to_visit in self.visited_links:
+                            self.queue.put((link_to_visit, depth))
+                            iterator += 1
         if iterator != 0 :
             print(f"{self.GREEN}Number of new links found = {iterator} {self.RESET}")
        
@@ -161,11 +176,22 @@ class Scraper:
                     response.close() # fermer la connexion pour les autres types de contenu, on ne les traite pas
             except requests.exceptions.RequestException as e:
                 print(f"{self.RED}Error fetching URL: {e}{self.RESET}", file=sys.stderr)
+            except Exception as e:
+                # ← attrape TOUT le reste : AttributeError, TypeError, etc.
+                print(f"{self.RED}Unexpected error on {url}: {type(e).__name__}: {e}{self.RESET}", file=sys.stderr)
+        
             finally:
                 self.queue.task_done() # indique que la tache est terminée pour le lien traité
 
 
     def scrape(self) -> None:
+        print(f"Do you want to stay on the same hostname ? (y/n) : ", end="")
+        choice = input().strip().lower()
+        while choice != "y" and choice != "n":
+            print(f"Invalid choice. Please enter 'y' or 'n': ", end="")
+            choice = input().strip().lower()
+        if choice == "n":
+            self.stay_on_same_hostname = False # si on ne veut pas rester sur le meme hostname, on met hostname a None pour ne pas faire de vérification dans les fonctions d'extraction des liens et des images
         try:
             with ThreadPoolExecutor(max_workers=self.MAX_WORKER) as executor:
                 for _ in range(self.MAX_WORKER):
@@ -174,5 +200,27 @@ class Scraper:
         except KeyboardInterrupt:
             print(f"{self.RED}Scraping interrupted with CTRL+C.{self.RESET}")
             self.stop_event.set()           
+            while not self.queue.empty():
+                try:
+                    self.queue.get_nowait()
+                    self.queue.task_done()
+                except Empty:
+                    break
             return 1
         return 0
+    
+    
+    
+# Arguments :
+
+# depth : 5
+# path : ./data/
+# url : https://shirtz.cool/
+# ==========
+
+# Total links visited : 1616
+# Total images visited : 1130
+# Total files downloaded : 1089
+# hostname : shirtz.cool
+
+# Time taken for scraping : 25.40 seconds
