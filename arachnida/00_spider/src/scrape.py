@@ -162,11 +162,8 @@ class Scraper:
             self.extract_all_links(url, soup, depth - 1)
 
 
-    def process_url(self, url: str, depth: int) -> None:
+    def process_url(self, response, url: str, depth: int) -> None:
         print(f"Depth = {depth} | URL : {url}")
-        response = self.session.get(url, stream=True, timeout=5)
-        response.raise_for_status()
-        
         content_type = response.headers.get("Content-Type")
         if "text/html" in content_type:
             self.extract_from_soup(url, response, depth)
@@ -178,8 +175,6 @@ class Scraper:
                 self.write_image(response, url, extension)
             else :
                 print(f"{self.RED}Unsupported image format: {extension}{self.RESET}")
-        else :
-            response.close() # fermer la connexion pour les autres types de contenu, on ne les traite pas
     
     
     # ========================== ASK USER PREFERENCES ==========================
@@ -220,14 +215,17 @@ class Scraper:
                         # print(f"{self.YELLOW}Skipping already visited URL: {url}{self.RESET}")
                         continue
                     self.visited_links.add(url)
-
-                self.process_url(url, depth)
+                response = self.session.get(url, stream=True, timeout=5)
+                response.raise_for_status()
+                self.process_url(response, url, depth)
             except requests.exceptions.RequestException as e:
                 print(f"{self.RED}Error fetching URL: {e}{self.RESET}", file=sys.stderr)
             except Exception as e:
                 # attrape le reste : AttributeError, TypeError, etc.
                 print(f"{self.RED}Unexpected error on {url}: {type(e).__name__}: {e}{self.RESET}", file=sys.stderr)
             finally:
+                if response is not None:
+                    response.close()
                 self.queue.task_done() # indique que la tache est terminée pour le lien traité
     
             
