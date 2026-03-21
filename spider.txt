@@ -1,0 +1,121 @@
+
+
+    FIFO veut dire “First In, First Out” = “Premier entré, premier sorti”.
+
+Imagine une file d’attente :
+
+la première personne qui arrive est la première servie.
+En programmation, une structure FIFO (une queue) fonctionne pareil :
+
+tu ajoutes les éléments à la fin
+tu retire/traites les éléments au début
+
+BFS (Breadth‑First Search) = “je fais niveau par niveau”
+Tu visites d’abord toutes les pages à profondeur 0, puis profondeur 1, puis profondeur 2…
+
+DFS (Depth‑First Search) = “je vais au fond d’abord”
+Tu suis un lien, puis un lien de ce lien, etc. le plus profond possible, puis tu reviens en arrière.
+Structure typique : pile (stack) ou récursion.
+
+
+
+
+Copilot said: `requests.Session()` est un objet de la librairie
+requests.Session() est un objet de la librairie requests qui te permet de faire plusieurs requêtes HTTP en réutilisant la même “session” au lieu d’appeler requests.get(...) à chaque fois.
+
+Pourquoi c’est utile ?
+Quand tu fais beaucoup de GET (scraper), une Session :
+
+réutilise les connexions TCP (keep-alive) → moins de “handshake” → plus rapide
+garde des infos communes (headers, cookies, auth) → tu n’as pas à les repasser partout
+a souvent un comportement plus “propre” pour un crawler (tout passe par le même client)
+
+
+
+
+
+
+task_done() — à quoi ça sert ? 🔍
+
+Le problème qu'il résout
+La Queue sait compter combien d'éléments elle contient. Quand tu fais queue.get(), elle retire l'élément mais elle ne sait pas si tu as fini de le traiter.
+Du point de vue de la Queue, get() veut juste dire "je l'ai pris", pas "j'ai fini de travailler dessus".
+
+Ce que task_done() signifie
+C'est toi qui dis manuellement à la Queue : "j'ai fini de traiter cet élément".
+
+Pourquoi c'est utile : queue.join()
+task_done() seul ne sert à rien. Il existe uniquement pour fonctionner avec queue.join().
+queue.join() bloque le programme principal jusqu'à ce que unfinished_tasks == 0.
+
+Sans ce mécanisme, ton programme principal ne saurait jamais quand tous les workers ont terminé leur travail.
+
+
+
+
+
+ Pourquoi response.close() sur les pages qu'on n'analyse pas ?
+C'est lié à stream=True. Quand tu fais :
+pythonresponse = self.session.get(url, stream=True)
+```
+
+`requests` ouvre une connexion réseau mais **ne télécharge pas le corps immédiatement**. Le corps reste "en transit", la connexion reste ouverte, un file descriptor est utilisé.
+```
+Sans stream=True          Avec stream=True
+─────────────────         ──────────────────────────────
+GET →                     GET →
+← headers + body          ← headers seulement (body en attente)
+connexion fermée           connexion OUVERTE, FD occupé
+Pour libérer cette connexion, il faut soit lire tout le contenu, soit fermer explicitement.
+Dans ton code, tu lis le contenu dans deux cas :
+pythonif "text/html" in content_type:
+    self.extract_url(...)     # lit response.text → corps consommé → connexion libérée ✅
+
+elif "image/" in content_type:
+    self.write_image(...)     # iter_content() → corps consommé → connexion libérée ✅
+Mais si le content_type est ni HTML ni image (un PDF, un fichier zip, un format non supporté...) tu ne lis rien — la connexion reste ouverte :
+pythonelse:
+    print("Unsupported format")
+    # ← connexion toujours ouverte, FD occupé 👻
+
+
+
+
+Comment détecter ce genre de crash silencieux à l'avenir
+C'est le vrai problème — ton worker crashe sans rien afficher. Pour voir les exceptions non catchées dans tes workers, attrape tout en bas :
+            print(f"{self.RED}Unexpected error on {url}: {type(e).__name__}: {e}{self.RESET}", file=sys.stderr)
+    type(e).__name__ affiche le nom de l'exception (AttributeError, TypeError...) ce qui te donne immédiatement où chercher.
+
+
+explain this :
+            with ThreadPoolExecutor(max_workers=self.MAX_WORKER) as executor:
+                for _ in range(self.MAX_WORKER):
+                    executor.submit(self.worker)
+                self.queue.join()
+
+and this :
+while not self.queue.empty():
+                try:
+                    self.queue.get_nowait()
+                    self.queue.task_done()
+                except Empty:
+                    break
+
+and this
+with self.visited_lock:
+                    if url in self.visited_links:
+                        # print(f"{self.YELLOW}Skipping already visited URL: {url}{self.RESET}")
+                        continue
+
+
+
+
+# ce qui est accepté : PARSER
+# repetition de la meme lettre uniquement cote a cote : -rrr
+# repetition colle de plusieurs lettre differentes : -rrrlllppp
+
+# refusé
+# pas de repetition de - : ---r
+# si apparition dune lettre/repetition dune lettre, elle ne peut plus etre repetée : -r -r
+
+

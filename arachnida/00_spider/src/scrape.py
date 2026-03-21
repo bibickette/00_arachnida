@@ -2,6 +2,7 @@
 import os
 import sys
 import threading
+from time import time
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
@@ -32,7 +33,7 @@ class Scraper:
         self.path = args.path
         
         self.stay_on_same_hostname = True
-        self.hostname = urlparse(self.url).hostname.strip("/") # spider stay at the same hostname
+        self.hostname = None # spider stay at the same hostname
         
         self.session = requests.Session()
         self.session.headers.update(self.HEADERS)
@@ -49,7 +50,9 @@ class Scraper:
         self.nb_files_downloaded_lock = threading.Lock()
         self.nb_files_downloaded = 0
         
-        self.stop_event = threading.Event()
+        self.stop_event = threading.Event() # pour signaler aux threads de s'arrêter en cas d'interruption (CTRL+C)
+        
+    # ========================== PRINT ==========================
         
 
     def print_image_info(self, extension : str, path :  str, img_name : str) ->  None :
@@ -64,7 +67,19 @@ class Scraper:
         print(f"Total images visited : {self.img_found}")
         print(f"Total files downloaded : {self.nb_files_downloaded}")
         print(f"hostname : {self.hostname}")
-
+        
+        
+        
+    # ========================== UTILS ==========================
+        
+    def empty_queue(self) -> None:
+        while not self.queue.empty():
+            try:
+                self.queue.get_nowait()
+                self.queue.task_done()
+            except Empty:
+                break
+            
     # ========================== DOWNLOAD IMAGES ==========================
     
     def define_img_name(self, url: str, extension: str) -> str:
@@ -95,24 +110,25 @@ class Scraper:
         print(f"{self.GREEN}Download success : {full_path}{self.RESET}")       
 
 
-    # ========================== GET ALL URLS ==========================
+    # ========================== EXTRACT FROM SOUP : URL/IMG ==========================
 
     def extract_all_images(self, url: str, soup, depth: int) -> None :
         supposedly_imgs = soup.find_all("img")  # get tous les urls
         iterator = 0
         for img in supposedly_imgs:
             img = img.get("src")
-            if img:
-                img_to_visit = urljoin(url, img)
-                img_hostname = urlparse(img_to_visit).hostname
-                if img_hostname is None:
-                    continue
-                if self.stay_on_same_hostname and img_hostname.strip("/") != self.hostname:
-                        continue
-                with self.visited_lock:
-                    if not img_to_visit in self.visited_links:
-                        self.queue.put((img_to_visit, depth))
-                        iterator += 1
+            if not img:
+                continue
+            img_to_visit = urljoin(url, img)
+            img_hostname = urlparse(img_to_visit).hostname
+            if img_hostname is None:
+                continue
+            if self.stay_on_same_hostname and img_hostname.strip("/") != self.hostname:
+                continue
+            with self.visited_lock:
+                if not img_to_visit in self.visited_links:
+                    self.queue.put((img_to_visit, depth))
+                    iterator += 1
         if iterator != 0 :
             print(f"{self.GREEN}Number of new images found = {iterator} {self.RESET}")
 
@@ -122,29 +138,75 @@ class Scraper:
         iterator = 0
         for link in supposedly_links:
             link = link.get("href") 
-            if link:
-                if not link.startswith("#"):
-                    link_to_visit = urljoin(url, link)
-                    link_hostname = urlparse(link_to_visit).hostname
-                    if link_hostname is None:
-                        continue
-                    if self.stay_on_same_hostname and link_hostname.strip("/") != self.hostname:
-                        continue
-                    with self.visited_lock:
-                        if not link_to_visit in self.visited_links:
-                            self.queue.put((link_to_visit, depth))
-                            iterator += 1
+            if not link:
+                continue
+            if not link.startswith("#"):
+                link_to_visit = urljoin(url, link)
+                link_hostname = urlparse(link_to_visit).hostname
+                if link_hostname is None:
+                    continue
+                if self.stay_on_same_hostname and link_hostname.strip("/") != self.hostname:
+                    continue
+                with self.visited_lock:
+                    if not link_to_visit in self.visited_links:
+                        self.queue.put((link_to_visit, depth))
+                        iterator += 1
         if iterator != 0 :
             print(f"{self.GREEN}Number of new links found = {iterator} {self.RESET}")
        
             
-    def extract_url(self, url: str, response, depth : int) -> None :
+    def extract_from_soup(self, url: str, response, depth : int) -> None :
         soup = BeautifulSoup(response.text, "html.parser")
         self.extract_all_images(url, soup, depth)
         if depth - 1 >= 0 and self.recursive:
             self.extract_all_links(url, soup, depth - 1)
 
-            
+
+    def process_url(self, url: str, depth: int) -> None:
+        print(f"Depth = {depth} | URL : {url}")
+        response = self.session.get(url, stream=True, timeout=5)
+        response.raise_for_status()
+        
+        content_type = response.headers.get("Content-Type")
+        if "text/html" in content_type:
+            self.extract_from_soup(url, response, depth)
+        elif "image/" in content_type:
+            extension = content_type.split("/")[1]
+            with self.img_found_lock:
+                self.img_found += 1
+            if extension in self.EXTENSION_IMG :
+                self.write_image(response, url, extension)
+            else :
+                print(f"{self.RED}Unsupported image format: {extension}{self.RESET}")
+        else :
+            response.close() # fermer la connexion pour les autres types de contenu, on ne les traite pas
+    
+    
+    # ========================== ASK USER PREFERENCES ==========================
+        
+    def ask_user_preferences(self) -> int:
+        try:
+            print(f"Do you want to stay on the same hostname ? (y/n) : ", end="")
+            choice = input().strip().lower()
+            while choice != "y" and choice != "n":
+                print(f"Invalid choice. Please enter 'y' or 'n': ", end="")
+                choice = input().strip().lower()
+            if choice == "n":
+                self.stay_on_same_hostname = False # si on ne veut pas rester sur le meme hostname
+            else:
+                self.hostname = urlparse(self.url).hostname
+                if self.hostname is None:
+                    print(f"{self.RED}Invalid URL provided, cannot determine hostname. Exiting.{self.RESET}")
+                    return 1
+                self.hostname = self.hostname.strip("/")
+        except KeyboardInterrupt:
+            print(f"{self.RED}Scraping interrupted with CTRL+C before started.{self.RESET}")
+            return 1
+        return 0
+    
+    
+    # ========================== SCRAPER FUNCTION ==========================
+                        
     def worker(self) -> None:
         while(not self.stop_event.is_set()) :
             try:
@@ -158,40 +220,18 @@ class Scraper:
                         # print(f"{self.YELLOW}Skipping already visited URL: {url}{self.RESET}")
                         continue
                     self.visited_links.add(url)
-                print(f"Depth = {depth} | URL : {url}")
-                response = self.session.get(url, stream=True, timeout=5)
-                response.raise_for_status()
-                content_type = response.headers.get("Content-Type")
-                if "text/html" in content_type:
-                    self.extract_url(url, response, depth)
-                elif "image/" in content_type:
-                    extension = content_type.split("/")[1]
-                    with self.img_found_lock:
-                        self.img_found += 1
-                    if extension in self.EXTENSION_IMG :
-                        self.write_image(response, url, extension)
-                    else :
-                        print(f"{self.RED}Unsupported image format: {extension}{self.RESET}")
-                else :
-                    response.close() # fermer la connexion pour les autres types de contenu, on ne les traite pas
+
+                self.process_url(url, depth)
             except requests.exceptions.RequestException as e:
                 print(f"{self.RED}Error fetching URL: {e}{self.RESET}", file=sys.stderr)
             except Exception as e:
-                # ← attrape TOUT le reste : AttributeError, TypeError, etc.
+                # attrape le reste : AttributeError, TypeError, etc.
                 print(f"{self.RED}Unexpected error on {url}: {type(e).__name__}: {e}{self.RESET}", file=sys.stderr)
-        
             finally:
                 self.queue.task_done() # indique que la tache est terminée pour le lien traité
-
-
-    def scrape(self) -> None:
-        print(f"Do you want to stay on the same hostname ? (y/n) : ", end="")
-        choice = input().strip().lower()
-        while choice != "y" and choice != "n":
-            print(f"Invalid choice. Please enter 'y' or 'n': ", end="")
-            choice = input().strip().lower()
-        if choice == "n":
-            self.stay_on_same_hostname = False # si on ne veut pas rester sur le meme hostname, on met hostname a None pour ne pas faire de vérification dans les fonctions d'extraction des liens et des images
+    
+            
+    def launch_threads(self) -> int:
         try:
             with ThreadPoolExecutor(max_workers=self.MAX_WORKER) as executor:
                 for _ in range(self.MAX_WORKER):
@@ -199,15 +239,16 @@ class Scraper:
                 self.queue.join()
         except KeyboardInterrupt:
             print(f"{self.RED}Scraping interrupted with CTRL+C.{self.RESET}")
-            self.stop_event.set()           
-            while not self.queue.empty():
-                try:
-                    self.queue.get_nowait()
-                    self.queue.task_done()
-                except Empty:
-                    break
+            self.stop_event.set()
+            self.empty_queue()
             return 1
         return 0
+        
+    # ========================== MAIN FUNCTION ==========================
     
-    
-
+    def scrape(self) -> int:
+        ret = self.ask_user_preferences()
+        if ret != 0:
+            return ret
+        
+        return self.launch_threads()

@@ -1,35 +1,31 @@
 #!/usr/bin/env python3
-
-# ce qui est accepté :
-# repetition de la meme lettre uniquement cote a cote : -rrr
-# repetition colle de plusieurs lettre differentes : -rrrlllppp
-
-# refusé
-# pas de repetition de - : ---r
-# si apparition dune lettre/repetition dune lettre, elle ne peut plus etre repetée : -r -r
-
+import sys
 
 class ArgumentParser:
     MAX_DEPTH = 10
     DEFAULT_DEPTH = 5
     DEFAULT_PATH = "./data/"
-
-    def __init__(self, argv: list[str]) -> None:
+    RED = "\033[31m"
+    RESET = "\033[0m"
+    
+    def __init__(self) -> None:
         self.recursive = False
         self.depth = None
         self.path = None
         self.url = None
-        self.arg_check(argv)
+
 
     def print_args(self) -> None:
         print("\n==========\nArguments :\n")
         print(f"depth : {self.depth}\npath : {self.path}\nurl : {self.url}\n==========")
+
 
     def parse_depth(self, val: str) -> None:
         try:
             self.depth = int(val)
         except ValueError:
             self.depth = None
+
 
     def options_verify(self, char_used : set, value: str, possible_argument: str, iterator: int) -> int:
         if value[len(value) - 1] == "r":
@@ -51,6 +47,7 @@ class ArgumentParser:
 
         return iterator
 
+
     def parser_result_verify(self, char_used: set) -> None:
         if "l" in char_used and (self.depth is None):
             raise ValueError(f"Missing depth value for -l flag")
@@ -68,6 +65,7 @@ class ArgumentParser:
         if self.path is None:
             self.path = self.DEFAULT_PATH
 
+
     def is_valid_flag(self, flag_value: str, char_used: set) -> set:
         previous = None
         if len(flag_value) == 1:
@@ -76,7 +74,7 @@ class ArgumentParser:
         previous = flag_value[0]
         for char in flag_value[1:]:
             if char != "r" and char != "l" and char != "p":
-                raise ValueError(f"Error : wrong char : {char}")
+                raise ValueError(f"Wrong char : {char}")
             if (char != previous) and char in char_used:
                 raise ValueError(
                     f"Flag Error : {flag_value}\nFlag already used: {char}"
@@ -85,6 +83,7 @@ class ArgumentParser:
             previous = char
 
         return char_used
+
 
     def validate_flag_arguments(self, argv: list[str]) -> None:
         char_used = set()
@@ -107,12 +106,18 @@ class ArgumentParser:
 
         self.parser_result_verify(char_used)
 
-    def arg_check(self, argv: list[str]) -> None:
+
+    def arg_check(self, argv: list[str]) -> "ArgumentParser | None":
         argc = len(argv)
-
-        if argc > 7:
-            raise ValueError(f"Maximum of 6 arguments")
-        elif argc < 2:
-            raise ValueError(f"Minimum of 2 arguments")
-
-        self.validate_flag_arguments(argv[1:])
+        try:
+            if argc > 7:
+                raise ValueError(f"Maximum of 6 arguments")
+            elif argc < 2:
+                raise ValueError(f"Minimum of 2 arguments")
+            
+            self.validate_flag_arguments(argv[1:])
+        except ValueError as e:
+            print(f"Usage: spider.py [-r] [-l DEPTH] [-p PATH] URL\n\n{self.RED}Error : {e}{self.RESET}", file=sys.stderr)
+            self = None
+        
+        return self
