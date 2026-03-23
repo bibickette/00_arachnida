@@ -13,7 +13,7 @@ def main() -> int:
         print(f"{GREEN}The file is not a JPEG image. Detected MIME type: {mime}{RESET}")
         return 1
     analyzer = JPEGAnalyzer()
-    analyzer.analyze_image("img_extension/img_jpg.jpg")
+    analyzer.analyze_image("img_extension/IMG_20260215_195801.jpg")
 
     return 0
 
