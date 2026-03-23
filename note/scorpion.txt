@@ -1,0 +1,27 @@
+YCBCR
+YCbCr est un modèle de couleur utilisé en vidéo et en traitement d’image numérique, qui sépare l’information de luminance (Y') de celle des composantes de chrominance (Cb et Cr).  La sous-échantillonnage YCbCr consiste à réduire la résolution des composantes de couleur (chrominance) par rapport à la luminance, exploitant le fait que l’œil humain est moins sensible aux variations de couleur qu’aux variations de luminosité. 
+
+Ce processus permet de réduire la taille des fichiers et la bande passante nécessaire pour transmettre ou stocker des vidéos, sans une perte significative de qualité perçue. Les ratios de sous-échantillonnage, comme 4:2:0, 4:2:2, 4:1:1 ou 4:4:4, indiquent la manière dont les échantillons de chrominance sont échantillonnés par rapport à la luminance dans une région de référence de 4 pixels de large et 2 pixels de haut. 
+
+4:4:4 : Aucune sous-échantillonnage ; chaque pixel a ses propres valeurs Cb et Cr.  Utilisé en post-production haute qualité.
+4:2:2 : Les composantes Cb et Cr sont échantillonnées à la moitié de la résolution horizontale, mais pleine résolution verticale.  Courant dans les formats professionnels comme Digital Betacam ou ProRes.
+4:2:0 : Les composantes Cb et Cr sont échantillonnées à la moitié de la résolution horizontale et verticale.  Très courant dans les formats de diffusion (DVD, Blu-ray, H.264, AVCHD).
+4:1:1 : La résolution horizontale de la chrominance est réduite à un quart.  Utilisé dans des formats comme DV.
+Le sous-échantillonnage est une technique essentielle dans les codecs vidéo modernes, permettant un équilibre optimal entre qualité visuelle et efficacité de stockage
+
+
+
+EXIF BYTE ORDER
+Exif byte order refers to the way multi-byte data (like integers) is stored in an Exif file, determined by the first two bytes of the TIFF header within the Exif data. 
+
+II (Intel, Little-endian): The least significant byte comes first. For example, the 32-bit value 0x12345678 is stored as 78 56 34 12. 
+MM (Motorola, Big-endian): The most significant byte comes first. The same value 0x12345678 is stored as 12 34 56 78. 
+This byte order is critical for correctly interpreting all subsequent data in the Exif metadata, including tag values, offsets, and counts. Most digital cameras use little-endian (II), while some, like certain Ricoh models and older Sony cameras, use big-endian (MM).
+
+Yes, there are only two possible byte orders in ExIF: little-endian (II) and big-endian (MM). 
+
+The Exif standard, based on the TIFF format, uses a 2-byte indicator at the start of the Exif data to specify the byte order:
+
+"II" (0x4949): Indicates little-endian (Intel) byte order. 
+"MM" (0x4D4D): Indicates big-endian (Motorola) byte order.
+These are the only two values defined and recognized by the Exif specification for byte order. No other byte orders are supported. 

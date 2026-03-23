@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
 import sys
+from src.JPEGanalyzer import JPEGAnalyzer
+import mimetypes
+
+GREEN = "\033[32m"
+RESET = "\033[0m"
 
 def main() -> int:
-    RED = "\033[31m"
-    RESET = "\033[0m"
-    print(f"{RED}This is a placeholder for the scorpion script.{RESET}")
+
+    mime, _ = mimetypes.guess_type("img_extension/img_jpg.jpg")
+    if mime != "image/jpeg":
+        print(f"{GREEN}The file is not a JPEG image. Detected MIME type: {mime}{RESET}")
+        return 1
+    analyzer = JPEGAnalyzer()
+    analyzer.analyze_image("img_extension/img_jpg.jpg")
 
     return 0
 

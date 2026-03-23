@@ -87,6 +87,206 @@ C'est le vrai problème — ton worker crashe sans rien afficher. Pour voir les 
     type(e).__name__ affiche le nom de l'exception (AttributeError, TypeError...) ce qui te donne immédiatement où chercher.
 
 
+
+Grande révision complète 🔍
+
+1. ThreadPoolExecutor vs Thread normal
+Un Thread normal c'est le bas niveau — tu gères tout à la main :
+pythonimport threading
+
+t1 = threading.Thread(target=self.worker)
+t2 = threading.Thread(target=self.worker)
+t3 = threading.Thread(target=self.worker)
+
+t1.start()
+t2.start()
+t3.start()
+
+t1.join()  # attend que t1 finisse
+t2.join()  # attend que t2 finisse
+t3.join()  # attend que t3 finisse
+ThreadPoolExecutor c'est une surcouche qui fait tout ça automatiquement :
+pythonwith ThreadPoolExecutor(max_workers=3) as executor:
+    executor.submit(self.worker)  # crée + démarre un thread
+    executor.submit(self.worker)
+    executor.submit(self.worker)
+# ici il fait automatiquement le join() sur les 3
+La différence concrète :
+Thread normalThreadPoolExecutorCréationmanuelle x NautomatiqueDémarrage.start() x N.submit()Attente.join() x Nautomatique à la sortie du withLimite maxaucunemax_workersErreursperdues silencieusementcapturées dans le Future
+
+2. with ... as — le gestionnaire de contexte
+C'est une façon d'encapsuler "j'ouvre quelque chose / je le ferme proprement quoi qu'il arrive".
+Tu connais déjà sans le savoir :
+python# Sans with → dangereux
+f = open("fichier.txt")
+contenu = f.read()
+f.close()  # si une exception arrive avant → jamais appelé, fichier bloqué
+
+# Avec with → propre
+with open("fichier.txt") as f:
+    contenu = f.read()
+# f.close() appelé AUTOMATIQUEMENT même si une exception se produit
+Pour ThreadPoolExecutor c'est pareil :
+pythonwith ThreadPoolExecutor(max_workers=10) as executor:
+    executor.submit(self.worker)
+    self.queue.join()
+# équivalent à executor.shutdown(wait=True) → attend que tous les workers finissent
+Sans with tu devrais écrire :
+pythonexecutor = ThreadPoolExecutor(max_workers=10)
+executor.submit(self.worker)
+self.queue.join()
+executor.shutdown(wait=True)  # le with fait ça automatiquement
+```
+
+N'importe quel objet peut supporter `with` si son développeur a implémenté `__enter__` et `__exit__`. C'est juste une convention Python.
+
+---
+
+## 3. Pourquoi `queue.join()` et pourquoi DANS le `with`
+
+**Pourquoi `queue.join()`** — le `with ThreadPoolExecutor` attend que les workers **terminent leur fonction**. Mais tes workers sont des boucles `while True` — elles ne terminent jamais d'elles-mêmes. Le `with` attendrait indéfiniment.
+
+`queue.join()` lui, attend que tout le **travail** soit terminé — c'est une attente différente :
+```
+executor (with)  attend que les fonctions worker() se terminent
+queue.join()     attend que tous les items soient traités (unfinished_tasks == 0)
+Pourquoi DANS le with — si tu le mets dehors :
+pythonwith ThreadPoolExecutor(max_workers=10) as executor:
+    executor.submit(self.worker)
+# ← ici le with ferme → attend que les workers finissent
+# ← workers ont une boucle infinie → FREEZE
+# ← on n'atteint jamais queue.join()
+
+self.queue.join()  # ← jamais atteint
+À l'intérieur :
+pythonwith ThreadPoolExecutor(max_workers=10) as executor:
+    executor.submit(self.worker)
+    self.queue.join()  # ← BLOQUE ici jusqu'à unfinished_tasks == 0
+                       # workers encore vivants pendant ce temps
+# ← queue.join() débloqué → on sort du with → workers reçoivent le signal d'arrêt
+```
+
+---
+
+## 4. Pourquoi `task_done()`
+
+La Queue maintient un compteur interne `unfinished_tasks` :
+```
+queue.put()       → unfinished_tasks + 1   ("j'ai ajouté du travail")
+queue.get()       → rien ne change         ("j'ai pris le travail, mais pas fini")
+queue.task_done() → unfinished_tasks - 1   ("j'ai FINI ce travail")
+queue.join() bloque jusqu'à unfinished_tasks == 0. Sans task_done(), ce compteur n'atteint jamais 0 — freeze infini.
+La règle absolue : un get() = un task_done(), toujours dans un finally :
+pythonurl, depth = self.queue.get()   # unfinished_tasks + 1
+try:
+    # traitement...
+finally:
+    self.queue.task_done()       # unfinished_tasks - 1, quoi qu'il arrive
+
+5. Le vidage de queue et get_nowait()
+pythonwhile not self.queue.empty():
+    try:
+        self.queue.get_nowait()
+        self.queue.task_done()
+    except Empty:
+        break
+```
+
+`get_nowait()` c'est `queue.get()` sans attente — si la queue est vide, il lève `Empty` immédiatement au lieu de bloquer.
+
+**Est-ce qu'il "vole" les URLs déjà prises par `queue.get()` ?** Non. Une fois qu'un worker a fait `queue.get()`, l'item est **retiré** de la queue — il n'est plus accessible à personne. `get_nowait()` ne peut prendre que ce qui est encore dans la queue.
+```
+Queue : [url1, url2, url3, url4]
+
+Worker 1 → get() → prend url1  (url1 disparaît de la queue)
+Worker 2 → get() → prend url2  (url2 disparaît de la queue)
+
+Queue maintenant : [url3, url4]
+
+get_nowait() → prend url3 → task_done()
+get_nowait() → prend url4 → task_done()
+get_nowait() → Empty → break
+```
+
+Pourquoi on ne peut pas juste faire `queue.clear()` ? Parce que ça n'existe pas en Python — le contrat `get()/task_done()` doit toujours être respecté, sinon `queue.join()` a un compteur faux.
+
+---
+
+## 6. Les threads sont-ils vraiment en même temps ?
+
+**Oui et non** — et c'est là que Python est particulier.
+
+Python a le **GIL** (Global Interpreter Lock) — un verrou global qui dit qu'**un seul thread Python peut exécuter du bytecode à la fois** :
+```
+Thread 1  ██░░░░██░░░░██    ← exécute du code Python
+Thread 2  ░░██░░░░██░░░░    ← attend le GIL
+Thread 3  ░░░░██░░░░██░░    ← attend le GIL
+```
+
+Ça semble nul, mais pour ton scraper **ça ne change rien**. Pourquoi ? Parce que `requests.get()` passe la majorité du temps à **attendre la réponse réseau** — pendant ce temps, le thread relâche le GIL automatiquement :
+```
+Thread 1  ██[attente réseau....................]██
+Thread 2  ░░░░██[attente réseau................]░░██
+Thread 3  ░░░░░░██[attente réseau..............]░░░░██
+           ↑ pendant l'attente réseau, les autres peuvent tourner
+```
+
+Les threads s'exécutent vraiment en parallèle pendant les I/O (réseau, disque). C'est exactement ton cas — ton scraper est **I/O bound**, donc le GIL ne te pénalise pas.
+
+---
+
+## 7. Python synchrone ou asynchrone ? Comparaison avec C
+
+Le C est **synchrone par défaut** — chaque ligne s'exécute dans l'ordre, une après l'autre. Pour faire du parallèle en C, tu crées des threads POSIX (`pthread_create`) manuellement — tout est bas niveau.
+
+Python est aussi **synchrone par défaut**, mais avec plusieurs façons de faire du parallèle :
+```
+Synchrone (défaut)      ligne 1 → ligne 2 → ligne 3 → ...
+                        tout est séquentiel, prévisible
+
+Threads (ton cas)       plusieurs fils d'exécution simultanés
+                        partagent la mémoire → nécessite des locks
+                        GIL : un seul thread Python actif à la fois
+                        MAIS relâché pendant I/O → vrai parallélisme réseau
+
+Asyncio (autre option)  UN seul thread, mais il "jongle" entre les tâches
+                        pendant qu'une tâche attend le réseau, il fait autre chose
+                        pas de GIL, pas de locks nécessaires
+                        plus complexe à écrire (async/await partout)
+Pour du scraping, les deux (threads et asyncio) fonctionnent bien. Tu as choisi les threads — c'est un choix valide et plus simple à comprendre pour commencer.
+
+8. requests.Session — une seule fois ou par worker ?
+Une seule fois, à la création de la classe — c'est ce que tu fais déjà et c'est correct.
+Une Session c'est un objet qui maintient :
+pythonself.session = requests.Session()
+```
+
+En interne elle gère :
+```
+┌─────────────────────────────────────────────┐
+│ requests.Session                            │
+│                                             │
+│ headers par défaut    → envoyés à chaque req│
+│ cookies               → conservés entre req │
+│ pool de connexions    → réutilise les TCP   │
+│   └── connexion vers wikipedia.org          │
+│   └── connexion vers wikipedia.org  (x10)  │
+└─────────────────────────────────────────────┘
+```
+
+Le **pool de connexions** est la partie importante — sans Session, chaque `requests.get()` ouvre une nouvelle connexion TCP, fait la requête, ferme. C'est lent.
+
+Avec Session, les connexions sont **réutilisées** :
+```
+Sans Session   : [ouvre TCP] → requête → [ferme TCP]  x100 = 100 ouvertures
+Avec Session   : [ouvre TCP] → requête → requête → requête... = quelques ouvertures
+Est-ce thread-safe ? Oui — requests.Session est conçue pour être partagée entre threads. Le pool de connexions gère lui-même la concurrence. Tu n'as pas besoin de lock pour self.session.get().
+
+
+
+
+
+
 explain this :
             with ThreadPoolExecutor(max_workers=self.MAX_WORKER) as executor:
                 for _ in range(self.MAX_WORKER):
@@ -110,6 +310,12 @@ with self.visited_lock:
 
 
 
+
+
+
+
+
+
 # ce qui est accepté : PARSER
 # repetition de la meme lettre uniquement cote a cote : -rrr
 # repetition colle de plusieurs lettre differentes : -rrrlllppp
@@ -118,4 +324,92 @@ with self.visited_lock:
 # pas de repetition de - : ---r
 # si apparition dune lettre/repetition dune lettre, elle ne peut plus etre repetée : -r -r
 
+
+
+
+
+
+
+et si ya une error fetching cest un response none cest ca ?
+Pas forcément — ça dépend où l'exception est levée dans le try.
+pythonresponse = None
+try:
+    response = self.session.get(url, stream=True, timeout=5)
+    # ↑ si ça plante ici → response reste None ✅ close() sauté par le if
+
+    response.raise_for_status()
+    # ↑ si ça plante ici → response EST assignée, body pas lu
+    #   le finally doit appeler close() 👻
+```
+
+Donc deux scénarios :
+```
+Timeout, connexion refusée, DNS fail...
+→ session.get() lève l'exception
+→ response = None
+→ finally : if response is not None → False → close() sauté ✅
+
+404, 429, 500...
+→ session.get() RÉUSSIT → response est assignée
+→ raise_for_status() lève l'exception
+→ body jamais lu
+→ finally : if response is not None → True → close() appelé ✅
+C'est exactement pour ça que le pattern response = None + if response is not None dans le finally couvre tous les cas proprement. Tu n'as pas à réfléchir à chaque scénario — le finally gère tout.
+
+
+response.close() — quand et pourquoi 🔍
+
+Ce que stream=True change
+Sans stream=True, requests télécharge tout immédiatement à la réception :
+requests.get(url)
+→ reçoit headers + body complet en mémoire
+→ connexion fermée automatiquement
+Avec stream=True, il télécharge seulement les headers et laisse le body en attente :
+requests.get(url, stream=True)
+→ reçoit les headers seulement
+→ connexion TCP reste OUVERTE, body en attente
+→ c'est TOI qui décides quand lire le body
+Tant que tu ne lis pas le body ET que tu ne fermes pas, la connexion reste ouverte et occupe un file descriptor.
+
+Les trois cas dans ton code
+Cas 1 — HTML : tu lis response.text dans BeautifulSoup
+pythonif "text/html" in content_type:
+    self.extract_url(url, response, depth)
+    # → dans extract_url tu fais BeautifulSoup(response.text, ...)
+    # → response.text lit le body ENTIER
+    # → connexion retournée au pool automatiquement ✅
+    # → pas besoin de close()
+Cas 2 — Image supportée : tu lis avec iter_content()
+pythondef write_image(self, response, ...):
+    with open(full_path, "wb") as file:
+        for chunk in response.iter_content(chunk_size=8192):
+            file.write(chunk)
+    # → iter_content() lit jusqu'au dernier chunk
+    # → body entièrement consommé
+    # → connexion retournée au pool automatiquement ✅
+    # → pas besoin de close()
+Cas 3 — Tout le reste : tu ne lis rien
+pythonelif "image/" in content_type:
+    extension = content_type.split("/")[1]
+    if extension not in self.EXTENSION_IMG:
+        print(f"Unsupported image format: {extension}")
+        # → tu n'as rien lu du tout
+        # → body en attente, connexion ouverte 👻
+        # → BESOIN de close() ici
+
+else:
+    # PDF, zip, js, css...
+    # → tu n'as rien lu
+    # → BESOIN de close() ici
+```
+
+---
+
+## La règle simple
+```
+Tu as lu response.text        → pas besoin de close()
+Tu as lu iter_content()       → pas besoin de close()
+Tu n'as rien lu du tout       → BESOIN de close()
+
+response.close() sur une réponse déjà entièrement lue est sans effet — requests détecte que le body a été consommé et la connexion est déjà retournée au pool. Tu ne peux pas double-fermer accidentellement. Donc appeler close() dans tous les cas dans le finally est la façon la plus sûre et la plus simple.
 
