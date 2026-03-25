@@ -97,3 +97,48 @@ exemple nimporte comment de detection dun segment et avancer dedans
                     
                     
                 # print(f"{self.GREEN}Found marker: {SOF_MARKERS[marker]} at offset {i}{self.RESET}")
+
+
+
+                @classmethod ça veut dire quoi ?
+
+Ça veut dire :
+
+👉 la méthode reçoit la classe elle-même en premier argument.
+
+Par convention on l’appelle :
+
+cls
+✅ Comparaison claire
+🔵 Méthode normale (instance)
+class A:
+    def foo(self):
+        print(self)
+
+Quand tu fais :
+
+a = A()
+a.foo()
+
+👉 Python passe automatiquement :
+
+self = a   # l'objet
+🟢 Classmethod
+class A:
+    @classmethod
+    def foo(cls):
+        print(cls)
+
+Quand tu fais :
+
+A.foo()
+
+👉 Python passe automatiquement :
+
+cls = A   # la classe
+
+
+Type	reçoit	sert à
+instance method	self	agir sur un objet
+classmethod	cls	agir sur la classe
+staticmethod	rien	helper logique

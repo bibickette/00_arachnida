@@ -1,8 +1,6 @@
-#!/usr/bin/env python3
 import os
 import sys
 import threading
-from time import time
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
