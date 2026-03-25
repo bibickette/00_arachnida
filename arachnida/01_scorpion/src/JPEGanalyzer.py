@@ -6,6 +6,7 @@ import io
 import mimetypes
 from datetime import datetime
 from pathlib import Path
+import stat
 
 
 class JPEGAnalyzer:
@@ -15,10 +16,6 @@ class JPEGAnalyzer:
     def decode_icc_profile(self, icc_bytes: bytes) -> dict:
         profile = ImageCms.ImageCmsProfile(io.BytesIO(icc_bytes))
         info = ImageCms.getProfileInfo(profile)     
-        # print(f"info : {info}")
-        # print(f"profile : {profile}")
-        # print(f"profile.profile : {profile.profile.red_colorant}")
-        
         return {
             "Description"   : ImageCms.getProfileDescription(profile),
             "Copyright"     : ImageCms.getProfileCopyright(profile),
@@ -26,6 +23,21 @@ class JPEGAnalyzer:
             "Model"         : ImageCms.getProfileModel(profile),
             "Info"          : info.strip() if info else None,
         }
+        
+    def format_permissions(self, mode: int) -> str:
+        perms = ""
+        # type de fichier
+        if stat.S_ISDIR(mode):  perms += "d"
+        elif stat.S_ISLNK(mode): perms += "l"
+        else:                    perms += "-"
+
+        # owner, group, other — chacun sur 3 bits : rwx
+        for who in ["USR", "GRP", "OTH"]:
+            perms += "r" if mode & getattr(stat, f"S_IR{who}") else "-"
+            perms += "w" if mode & getattr(stat, f"S_IW{who}") else "-"
+            perms += "x" if mode & getattr(stat, f"S_IX{who}") else "-"
+
+        return perms  # → "-rw-rw-rw-"
     
     def get_file_metadata(self, path: str) -> dict:
         stat = os.stat(path)
@@ -39,7 +51,7 @@ class JPEGAnalyzer:
             "FileModifyDate"  : datetime.fromtimestamp(stat.st_mtime),
             "FileAccessDate"  : datetime.fromtimestamp(stat.st_atime),
             "FileInodeChangeDate": datetime.fromtimestamp(stat.st_ctime),
-            "FilePermissions" : oct(stat.st_mode),
+            "FilePermissions" : self.format_permissions(stat.st_mode),
         }
 
     def print_exif_data(self, image: Image) -> None:
@@ -51,7 +63,7 @@ class JPEGAnalyzer:
                 data = exif_data.get(tag_id)
                 if isinstance(data, bytes):
                     data = data.decode()
-                print(f"{tag:25}: {data}")
+                print(f"{tag:20}: {data}")
             print(f"{self.GREEN}End of EXIF Metadata{self.RESET}\n")
             
 
@@ -64,11 +76,22 @@ class JPEGAnalyzer:
                     print(f"{self.GREEN}Decoded ICC Profile:{self.RESET}")
                     decoded = self.decode_icc_profile(value)
                     for subkey, subvalue in decoded.items():
-                        print(f"{subkey}: {subvalue}")
+                        print(f"{'':10}{subkey:20}: {subvalue}")
                     print(f"{self.GREEN}End of ICC Profile{self.RESET}\n")
-
+                elif key.lower() == "xmp":
+                    print(f"{self.GREEN}Decoded XMP Metadata:{self.RESET}")
+                    print(f"{'':10}XMP Data: {value.decode()}")
+                    print(f"{self.GREEN}End of XMP Metadata{self.RESET}\n")
             elif isinstance(value, tuple):
                 print(f"{key:20}: {', '.join(map(str, value))}")
+                
+            elif(isinstance(value, dict)):
+                print(f"{key:20}:")
+                for subkey, subvalue in value.items():
+                    if(isinstance(subvalue, bytes)):
+                        print(f"{'':10}{subkey:20}: <bytes length={len(subvalue)}>")
+                        subvalue = subvalue.decode()
+                    print(f"{'':10}{subkey:20}: {subvalue}")
 
             else:
                 print(f"{key:20}: {value}")
@@ -112,6 +135,7 @@ class JPEGAnalyzer:
             0xFFE1: "APP1 - EXIF ou XMP",
             0xFFE2: "APP2 - ICC Profile",
             0xFFE3: "APP3 - Meta",
+            0xFFEC: "APP12 - Meta",
             0xFFED: "APP13 - IPTC / Photoshop",
             0xFFEE: "APP14 - Adobe",
 
@@ -184,6 +208,7 @@ class JPEGAnalyzer:
                     result["YCbCrSubSampling"] = SUBSAMPLING_MAP.get((y_h, y_v), f"{y_h}x{y_v}")
 
                     break  # on a trouvé le SOF, inutile de continuer
+               
 
             # Étape 5 : si ce n'est pas un SOF, sauter ce segment
             if marker in (0xFFD8, 0xFFD9):
@@ -200,41 +225,58 @@ class JPEGAnalyzer:
         return result
     
     
+    def print_basic_info(self, image: Image) -> None:
+        print(f"{'Filename':20}: {image.filename}")
+        print(f"{'Image Size':20}: {image.size}")
+        print(f"{'Image Format':20}: {image.format}")
+        print(f"{'Image Mode':20}: {image.mode}")
+
+    def print_sof_data(self, sof_data: dict) -> None:
+        print(f"{self.GREEN}\nSOF Data:{self.RESET}")
+        for key, value in sof_data.items():
+            print(f"{key:20}: {value}")
+        print(f"{self.GREEN}End of SOF Data{self.RESET}\n")
+        
+    def print_basic_metadata(self, metadata: dict) -> None:
+        print(f"{self.GREEN}\nBasic Metadata:{self.RESET}")
+        for key, value in metadata.items():
+            print(f"{key:20}: {value}")
+        print(f"{self.GREEN}End of Basic Metadata{self.RESET}\n")
+        
+        
+    
     def analyze_image(self, path: str) -> None:
         try:
             image = Image.open(path)
             
-            print(f"Filename: {image.filename}")
-            print(f"Image Size: {image.size}")
-            print(f"Image Format: {image.format}")
-            print(f"Image Mode: {image.mode}")
-            
+            self.print_basic_info(image)
             self.print_exif_data(image)
             self.print_image_info_items(image)
             
         
             sof = self.parse_jpeg_sof(path)  # Lire les premiers octets après le SOF
             if sof:
-                print(f"{self.GREEN}\nSOF Data:{self.RESET}")
-                for key, value in sof.items():
-                    print(f"{key}: {value}")
-                print(f"{self.GREEN}End of SOF Data{self.RESET}\n")
+                self.print_sof_data(sof)
             else:
                 print(f"{self.GREEN}No SOF data found or unable to parse.{self.RESET}")
                 
             file_data = self.get_file_metadata(path)
-            for subkey, subvalue in file_data.items():
-                print(f"{subkey}: {subvalue}")
-                
+            self.print_basic_metadata(file_data)
+            
             print(f"\n{self.GREEN}EXIF Byte Order:{self.RESET} {self.get_exif_byte_order(path)}")
           
             gps_ifd = image.getexif().get_ifd(ExifTags.IFD.GPSInfo)
             if gps_ifd:
                 print("\n=== GPS IFD ===")
                 for tag_id, value in gps_ifd.items():
-                    tag_name = ExifTags.GPS_TAGS.get(tag_id, f"GPS_Tag_{tag_id}")
+                    tag_name = ExifTags.GPSTAGS.get(tag_id, f"GPS_Tag_{tag_id}")
+                    if isinstance(value, bytes):
+                        value = value.decode()
                     print(f"  {tag_name:30}: {value}")
             else:
                 print("\n=== GPS IFD : vide (pas de coordonnées) ===")
+                
+
+                
         except Exception as e:
             print(f"Error loading metadata: {e}")

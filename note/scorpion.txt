@@ -25,3 +25,75 @@ The Exif standard, based on the TIFF format, uses a 2-byte indicator at the star
 "II" (0x4949): Indicates little-endian (Intel) byte order. 
 "MM" (0x4D4D): Indicates big-endian (Motorola) byte order.
 These are the only two values defined and recognized by the Exif specification for byte order. No other byte orders are supported. 
+
+
+
+
+            exif = image.getexif()
+            if exif:
+                IFD_CODE_LOOKUP = {i.value: i.name for i in ExifTags.IFD}
+                for tag in IFD_CODE_LOOKUP:
+                    print(f"IFD code {tag} → {IFD_CODE_LOOKUP[tag]}")
+                    # if(tag == 37500 or tag == 40965): # ICC Profile ou MakerNote
+                    #     # print(f"  IFD {IFD_CODE_LOOKUP[tag]} is empty")
+                    #     continue
+                    exif_ifd = exif.get_ifd(tag)
+                    if exif_ifd:
+                        print(f"  IFD {IFD_CODE_LOOKUP[tag]} contains {len(exif_ifd)} tags")
+                        for sub_tag, sub_value in exif_ifd.items():
+                            print(f"    Sub-tag {sub_tag} → {ExifTags.TAGS.get(sub_tag, sub_tag)}: {sub_value}")
+            # for tag in ExifTags.TAGS:
+            #     print(f"Tag code {tag} → {ExifTags.TAGS[tag]}")
+
+            alors pourquoi ne pas print les ifd ? car ifd contient ca :     Exif = 0x8769
+    GPSInfo = 0x8825
+    MakerNote = 0x927C
+    Makernote = 0x927C  # Deprecated
+    Interop = 0xA005
+    et makernote et interop ne sont pas pris en charge par pillow
+    exif est deja pris en charge donc on le skip
+    ce qui nous reste que a print le gps info
+
+
+exemple nimporte comment de detection dun segment et avancer dedans
+
+     # if marker == 0xFFED:
+                #     print(f"{self.GREEN}Found APP13 segment (IPTC/Photoshop) at offset {i}{self.RESET}")
+                #     # print le segment
+                #     seg_len = struct.unpack(">H", data[i+2:i+4])[0]
+                #     seg_len = seg_len - 2  # longueur du segment sans les 2 octets de longueur
+                #     if isinstance(data[i+4:i+4+seg_len], bytes):
+                #         print(f"Segment data (decoded): {data[i+4:i+4+seg_len].decode()}, end offset : {i+4+seg_len}\n")
+                # if marker == 0xFFEC:
+                #     print(f"{self.GREEN}Found APP12 segment (Meta) at offset {i}{self.RESET}")
+                #     seg_len = struct.unpack(">H", data[i+2:i+4])[0]
+                #     seg_len = seg_len - 2
+                #     print(f"Segment length: {seg_len} bytes")
+                #     raw_data = data[i+4:i+4+seg_len]
+                #     print(f"Segment data (raw bytes): {raw_data}")
+                #     if isinstance(raw_data, bytes):
+                #         print(f"Segment data (decoded): {raw_data.decode()} end offset : {i+4+seg_len}\n")
+                #         i += 4 + seg_len  # skip "Ducky"
+
+                #         while i < len(data):
+
+                #             tag_id = struct.unpack(">H", data[i:i+2])[0]
+                #             print(f"raw tag = {data[i:i+2]}, tag_id: {tag_id}")
+                #             if tag_id == 0xFFE1:
+                #                 print(f"{self.GREEN}Found nested APP1 segment (EXIF) at offset {i}{self.RESET}")
+                #                 break
+                #             i+= 2
+                #             size = struct.unpack(">H", data[i:i+2])[0]
+                #             size = size - 2  # la taille du tag exclut les 2 octets de taille
+                #             print(f"Tag ID: {tag_id}, Size: {size} bytes")
+                            
+                #             value = data[i+2:i+2+size]
+                #             print(f"raw value : {value}")
+
+                            
+                #             print("value:", value.decode())
+                #             break
+                #             i += size
+                    
+                    
+                # print(f"{self.GREEN}Found marker: {SOF_MARKERS[marker]} at offset {i}{self.RESET}")
