@@ -6,20 +6,12 @@ from datetime import datetime
 from PIL import Image
 
 class BasicMetadata:
-    GREEN = "\033[32m"
-    YELLOW = "\033[33m"
+    ORANGE = "\033[38;5;208m"
     RESET = "\033[0m"
     
     @classmethod
     def __print_tag_value(cls, tag, value) -> None:
-        print(f"{cls.YELLOW}{tag:20}:{cls.RESET} {value}")
-        
-    @classmethod
-    def __print_basic_info(cls, image: Image) -> None:
-        cls.__print_tag_value("Filename", image.filename)
-        cls.__print_tag_value("Image Size", image.size)
-        cls.__print_tag_value("Image Format", image.format)
-        cls.__print_tag_value("Image Mode", image.mode)
+        print(f"{cls.ORANGE}{tag:20}:{cls.RESET} {value}")
 
 
     @staticmethod
@@ -40,37 +32,30 @@ class BasicMetadata:
     
     
     @classmethod
-    def __get_file_metadata(cls, path: str) -> dict:
+    def __print_file_metadata(cls, path: str, image: Image) -> dict:
         st = os.stat(path)
         p = Path(path)
         mime, _ = mimetypes.guess_type(path)
-        return {
-            "FileName"        : p.name,
-            "FileSize"        : f"{st.st_size} bytes",
-            "FileTypeExtension": p.suffix.lstrip(".").lower(),
-            "MIMEType"        : mime or "unknown",
-            "FileModifyDate"  : datetime.fromtimestamp(st.st_mtime),
-            "FileAccessDate"  : datetime.fromtimestamp(st.st_atime),
-            "FileInodeChangeDate": datetime.fromtimestamp(st.st_ctime),
-            "FilePermissions" : cls.__format_permissions(st.st_mode),
-        }
         
-        
-    @classmethod    
-    def __print_basic_metadata(cls, metadata: dict) -> None:
-        for key, value in metadata.items():
-            cls.__print_tag_value(key, value)
+        cls.__print_tag_value("Path", image.filename)
+        cls.__print_tag_value("FileName", p.name)
+        cls.__print_tag_value("FileSize", f"{st.st_size} bytes")
+        cls.__print_tag_value("ImageSize", image.size)
+        cls.__print_tag_value("ImageMode", image.mode)
+        cls.__print_tag_value("ImageFormat", image.format)
+        cls.__print_tag_value("FileTypeExtension", p.suffix.lstrip(".").lower())
+        cls.__print_tag_value("MIMEType", mime or "unknown")
+        cls.__print_tag_value("FileModifyDate", datetime.fromtimestamp(st.st_mtime))
+        cls.__print_tag_value("FileAccessDate", datetime.fromtimestamp(st.st_atime))
+        cls.__print_tag_value("FileInodeChangeDate", datetime.fromtimestamp(st.st_ctime))
+        cls.__print_tag_value("FilePermissions", cls.__format_permissions(st.st_mode))
         
         
     @classmethod 
-    def print_all_basic_metadata(cls, path: str) -> None:
-        print(f"{cls.GREEN}Basic Metadata:{cls.RESET}")
+    def print_all_basic_metadata(cls, path: str, image: Image) -> None:
+        print(f"{cls.ORANGE}===== Basic Metadata ====={cls.RESET}")
         
-        with Image.open(path) as image:
-            cls.__print_basic_info(image)
+        cls.__print_file_metadata(path, image)
         
-        metadata = cls.__get_file_metadata(path)
-        cls.__print_basic_metadata(metadata)
-        
-        print(f"{cls.GREEN}End of Basic Metadata{cls.RESET}")
+        # print(f"{cls.GREEN}End of Basic Metadata{cls.RESET}")
         

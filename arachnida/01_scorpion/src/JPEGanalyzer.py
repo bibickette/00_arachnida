@@ -8,82 +8,65 @@ from src.BasicMetadata import BasicMetadata
 class JPEGAnalyzer:
     GREEN = "\033[32m"
     YELLOW = "\033[33m"
+    RED = "\033[31m"
+    BLUE = "\033[34m"
+    PURPLE = "\033[35m"
+    ORANGE = "\033[38;5;208m"
     RESET = "\033[0m" 
     
     @classmethod
     def print_tag_value(cls, tag, value) -> None:
-        print(f"{cls.YELLOW}{tag:20}:{cls.RESET} {value}")
+        print(f"{tag}:{cls.RESET} {value}")
     
-    @staticmethod
-    def decode_icc_profile(icc_bytes: bytes) -> dict:
+    @classmethod
+    def decode_icc_profile(cls, icc_bytes: bytes) -> dict:
         profile = ImageCms.ImageCmsProfile(io.BytesIO(icc_bytes))
-        info = ImageCms.getProfileInfo(profile)     
-        return {
-            "Description"   : ImageCms.getProfileDescription(profile),
-            "Copyright"     : ImageCms.getProfileCopyright(profile),
-            "Manufacturer"  : ImageCms.getProfileManufacturer(profile),
-            "Model"         : ImageCms.getProfileModel(profile),
-            "Info"          : info.strip() if info else None,
-        }
+        info = ImageCms.getProfileInfo(profile)
+        cls.print_tag_value(f"{cls.PURPLE}{'':5}{'Description':20}", ImageCms.getProfileDescription(profile))
+        cls.print_tag_value(f"{cls.PURPLE}{'':5}{'Copyright':20}", ImageCms.getProfileCopyright(profile))
+        cls.print_tag_value(f"{cls.PURPLE}{'':5}{'Manufacturer':20}", ImageCms.getProfileManufacturer(profile))
+        cls.print_tag_value(f"{cls.PURPLE}{'':5}{'Model':20}", ImageCms.getProfileModel(profile))
+        cls.print_tag_value(f"{cls.PURPLE}{'':5}{'Info':20}", info.strip() if info else None)
+
     
     @classmethod
     def print_exif_data(cls, exif_data: dict) -> None:
         if exif_data:
-            print(f"{cls.GREEN}EXIF Metadata:{cls.RESET}")
+            print(f"{cls.BLUE}===== EXIF Metadata ====={cls.RESET}")
             for tag_id in exif_data:
                 tag = ExifTags.TAGS.get(tag_id, tag_id)
                 data = exif_data.get(tag_id)
                 if isinstance(data, bytes):
                     data = data.decode()
-                cls.print_tag_value(tag, data)
-            print(f"{cls.GREEN}End of EXIF Metadata{cls.RESET}")
+                cls.print_tag_value(f"{cls.BLUE}{tag:20}", data)
             
-
-    def print_image_info_items(self, image: Image) -> None:
-        print(f"{self.GREEN}Image Info Items:{self.RESET}")
+    @classmethod
+    def print_image_info_items(cls, image: Image) -> None:
+        print(f"{cls.YELLOW}===== Image Info Items ====={cls.RESET}")
         for key, value in image.info.items():
             if isinstance(value, bytes):                
-                print(f"{self.YELLOW}{key:20}:{self.RESET} <bytes length={len(value)}>")
+                print(f"{cls.YELLOW}{key:20}:{cls.RESET} <bytes length={len(value)}>")
                 if(key.lower() == "icc_profile"):
-                    print(f"{self.GREEN}Decoded ICC Profile:{self.RESET}")
-                    decoded = self.decode_icc_profile(value)
-                    for subkey, subvalue in decoded.items():
-                        print(f"{self.YELLOW}{'':5}{subkey:20}:{self.RESET} {subvalue}")
-                    print(f"{self.GREEN}End of ICC Profile{self.RESET}")
-                elif key.lower() == "xmp":
-                    print(f"{self.GREEN}Decoded XMP Metadata:{self.RESET}")
-                    # print(f"{'':5}XMP Data: {value.decode()}")
-                    print(f"{self.GREEN}End of XMP Metadata{self.RESET}")
+                    cls.decode_icc_profile(value)
             elif isinstance(value, tuple):
-                print(f"{self.YELLOW}{key:20}:{self.RESET} {', '.join(map(str, value))}")
-                
-            elif(isinstance(value, dict)):
-                print(f"{self.YELLOW}{key:20}:{self.RESET} {value}")
-                for subkey, subvalue in value.items():
-                    if(isinstance(subvalue, bytes)):
-                        print(f"{self.YELLOW}{'':5}{subkey}:{self.RESET} <bytes length={len(subvalue)}>")
-                        subvalue = subvalue.decode()
-                    print(f"{self.YELLOW}{'':5}{subkey} decoded :{self.RESET} '{subvalue}'")
-
+                print(f"{cls.YELLOW}{key:20}:{cls.RESET} {', '.join(map(str, value))}")
+                    
             else:
                 if "xml" in key.lower():
-                    print(f"{self.GREEN}XML data{self.RESET}")
+                    print(f"{cls.GREEN}XML data{cls.RESET}")
                     # print(f"{key:20}: {value}")
-                    print(f"{self.GREEN}end XML data{self.RESET}")
+                    print(f"{cls.GREEN}end XML data{cls.RESET}")
                     
                 else:
-                    self.print_tag_value(key, value)
-        print(f"{self.GREEN}End of Info Items{self.RESET}")
+                    cls.print_tag_value(f"{cls.YELLOW}{key:20}", value)
         
-                                    
-    def get_exif_byte_order(self, path: str) -> str:
-        with open(path, "rb") as f:
-            data = f.read()
+    @classmethod                                
+    def get_exif_byte_order(cls, data: bytes) -> str:
         # chercher "Exif\x00\x00" puis lire II ou MM juste après
         idx = data.find(b"Exif\x00\x00")
         if idx == -1:
             return None
-        tiff_start = idx + 6
+        tiff_start = idx + 6 # sauter exif\0\0
         order = data[tiff_start:tiff_start+2]
         if order == b"II":
             return "Little-endian (Intel, II)"
@@ -92,11 +75,12 @@ class JPEGAnalyzer:
         return None
     
     
-    def parse_jpeg_sof(self, path: str) -> dict:
+    @classmethod
+    def parse_jpeg_sof(cls, path: str) -> dict:
         SOF_MARKERS = {
             # Délimiteurs de base
-            0xFFD8: "SOI - Start Of Image",
-            0xFFD9: "EOI - End Of Image",
+            # 0xFFD8: "SOI - Start Of Image",
+            # 0xFFD9: "EOI - End Of Image",
 
             # Start Of Frame (type de compression)
             0xFFC0: "SOF0 - Baseline DCT, Huffman coding",
@@ -107,22 +91,22 @@ class JPEGAnalyzer:
             0xFFCA: "SOF10 - Progressive DCT, Arithmetic",
 
             # Tables
-            0xFFC4: "DHT - Define Huffman Table",
-            0xFFDB: "DQT - Define Quantization Table",
+            # 0xFFC4: "DHT - Define Huffman Table",
+            # 0xFFDB: "DQT - Define Quantization Table",
 
             # Segments APP (métadonnées)
-            0xFFE0: "APP0 - JFIF",
+            # 0xFFE0: "APP0 - JFIF",
             0xFFE1: "APP1 - EXIF ou XMP",
-            0xFFE2: "APP2 - ICC Profile",
-            0xFFE3: "APP3 - Meta",
-            0xFFEC: "APP12 - Meta",
-            0xFFED: "APP13 - IPTC / Photoshop",
-            0xFFEE: "APP14 - Adobe",
+            # 0xFFE2: "APP2 - ICC Profile",
+            # 0xFFE3: "APP3 - Meta",
+            # 0xFFEC: "APP12 - Meta",
+            # 0xFFED: "APP13 - IPTC / Photoshop",
+            # 0xFFEE: "APP14 - Adobe",
 
             # Autres
-            0xFFDA: "SOS - Start Of Scan",
-            0xFFDD: "DRI - Define Restart Interval",
-            0xFFFE: "COM - Comment",
+            # 0xFFDA: "SOS - Start Of Scan",
+            # 0xFFDD: "DRI - Define Restart Interval",
+            # 0xFFFE: "COM - Comment",
         }
         result = {}
         
@@ -146,7 +130,9 @@ class JPEGAnalyzer:
 
             # Étape 3 : est-ce un marqueur SOF ?
             if marker in SOF_MARKERS:
-                if marker == 0xFFC0:
+                if marker == 0xFFE1: # APP1
+                    result["ExifByteOrder"] = cls.get_exif_byte_order(data)
+                else: # SOF
                     result["EncodingProcess"] = SOF_MARKERS[marker]
                     # SOF_MARKERS[0xFFC0] = "Baseline DCT, Huffman coding"
 
@@ -188,8 +174,7 @@ class JPEGAnalyzer:
                     result["YCbCrSubSampling"] = SUBSAMPLING_MAP.get((y_h, y_v), f"{y_h}x{y_v}")
 
                     break  # on a trouvé le SOF, inutile de continuer
-               
-
+                
             # Étape 5 : si ce n'est pas un SOF, sauter ce segment
             if marker in (0xFFD8, 0xFFD9):
                 # SOI et EOI n'ont pas de longueur, juste 2 octets
@@ -205,46 +190,52 @@ class JPEGAnalyzer:
         return result
     
     
-    def print_sof_data(self, sof_data: dict) -> None:
+    @classmethod
+    def print_sof_data(cls, sof_data: dict) -> None:
         if sof_data:
-            print(f"{self.GREEN}SOF Data:{self.RESET}")
+            print(f"{cls.GREEN}===== SOF Data ====={cls.RESET}")
             for key, value in sof_data.items():
-                self.print_tag_value(key, value)
-
-            print(f"{self.GREEN}End of SOF Data{self.RESET}")
+                cls.print_tag_value(f"{cls.GREEN}{key:20}", value)
         else:
-            print(f"{self.GREEN}No SOF data found or unable to parse.{self.RESET}")
+            print(f"{cls.RED}===== No SOF data found or unable to parse ====={cls.RESET}")
 
 
-    def print_gps_data(self, gps_data: dict) -> None:
+    @classmethod
+    def print_gps_data(cls, gps_data: dict) -> None:
         if gps_data:
-            print(f"{self.GREEN}\nGPS IFD:{self.RESET}")
+            print(f"{cls.ORANGE}===== GPS IFD ====={cls.RESET}")
             for tag_id, value in gps_data.items():
                 tag_name = ExifTags.GPSTAGS.get(tag_id, f"GPS_Tag_{tag_id}")
                 if isinstance(value, bytes):
                     value = value.decode()
-                self.print_tag_value(tag_name, value)
+                cls.print_tag_value(f"{cls.ORANGE}{tag_name:20}", value)
         else:
-            print(f"{self.GREEN}No GPS data found.{self.RESET}")
-    
-    
-    def analyze_image(self, path: str) -> None:
-        try:
-            image = Image.open(path)
-            
-            exif_data = image.getexif()
-            sof = self.parse_jpeg_sof(path)
-            gps_ifd = image.getexif().get_ifd(ExifTags.IFD.GPSInfo)
+            print(f"{cls.RED}===== No GPS data found ====={cls.RESET}")
 
-            BasicMetadata.print_all_basic_metadata(path)
-            self.print_exif_data(exif_data)
-            self.print_image_info_items(image)
-            self.print_sof_data(sof)
-            print(f"{self.GREEN}EXIF Byte Order:{self.RESET} {self.get_exif_byte_order(path)}")
-            self.print_gps_data(gps_ifd)
+
+    @classmethod
+    def analyze_image(cls, path: str) -> None:
+        try:
+            print("\n===========================================================================")
+            print("===========================================================================")
+            print(f"Extract Metadata from JPEG file -> {path}")
+            print("===========================================================================\n")
+            
+            with Image.open(path) as image:
+                BasicMetadata.print_all_basic_metadata(path, image)
+                
+                sof = cls.parse_jpeg_sof(path)
+                cls.print_sof_data(sof)
+                
+                exif_data = image.getexif()
+                cls.print_image_info_items(image)
+                cls.print_exif_data(exif_data)
+                
+                gps_ifd = image.getexif().get_ifd(ExifTags.IFD.GPSInfo)
+                cls.print_gps_data(gps_ifd)
 
         except Exception as e:
-            print(f"Error loading metadata: {e}")
+            print(f"{cls.RED}Error loading metadata: {e}{cls.RESET}")
             
             
             
