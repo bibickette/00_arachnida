@@ -4,32 +4,25 @@ import io
 import xml.etree.ElementTree as ET
 
 from src.BasicMetadata import BasicMetadata
+from src.Color import Color
 
 class JPEGAnalyzer:
-    GREEN = "\033[32m"
-    YELLOW = "\033[33m"
-    RED = "\033[31m"
-    BLUE = "\033[34m"
-    PURPLE = "\033[35m"
-    ORANGE = "\033[38;5;208m"
-    RESET = "\033[0m" 
-    
-    @classmethod
-    def print_tag_value(cls, tag, value) -> None:
-        print(f"{tag}:{cls.RESET} {value}")
+    @staticmethod
+    def print_tag_value(tag, value) -> None:
+        print(f"{tag}:{Color.RESET} {value}")
     
     @classmethod
     def print_exif_data(cls, exif_data: dict) -> None:
         if exif_data:
-            print(f"{cls.BLUE}===== EXIF Metadata ====={cls.RESET}")
+            print(f"{Color.BLUE}===== EXIF Metadata ====={Color.RESET}")
             for tag_id in exif_data:
                 tag = ExifTags.TAGS.get(tag_id, tag_id)
                 data = exif_data.get(tag_id)
                 if isinstance(data, bytes):
                     data = data.decode()
-                cls.print_tag_value(f"{cls.BLUE}{tag:20}", data)
+                cls.print_tag_value(f"{Color.BLUE}{tag:20}", data)
         else:
-            print(f"{cls.RED}===== No EXIF data found ====={cls.RESET}")
+            print(f"{Color.RED}===== No EXIF data found ====={Color.RESET}")
     
     @classmethod
     def print_xmp_data(cls, key, value) -> None:
@@ -111,7 +104,7 @@ class JPEGAnalyzer:
         data = parse_xmp(value)
         for key, value in data.items():
             readable = decode_xmp_value(key, value)
-            print(f"{cls.PURPLE}{'':5}{key:20}:{cls.RESET} {readable}")
+            print(f"{Color.PURPLE}{'':5}{key:20}:{Color.RESET} {readable}")
 
     
     @classmethod
@@ -127,19 +120,19 @@ class JPEGAnalyzer:
                 'Info': info.strip() if info else None,
             }
             for key, value in data.items():
-                cls.print_tag_value(f"{cls.PURPLE}{'':5}{key:20}", value)
+                cls.print_tag_value(f"{Color.PURPLE}{'':5}{key:20}", value)
         
-        print(f"{cls.YELLOW}===== Image Info Items ====={cls.RESET}")
+        print(f"{Color.YELLOW}===== Image Info Items ====={Color.RESET}")
         for key, value in image.info.items():
             if "xmp" in key.lower():
-                print(f"{cls.YELLOW}{key:20}:{cls.RESET} <bytes length={len(value)}>")
+                print(f"{Color.YELLOW}{key:20}:{Color.RESET} <bytes length={len(value)}>")
                 cls.print_xmp_data(key, value)
             elif isinstance(value, bytes):                
-                print(f"{cls.YELLOW}{key:20}:{cls.RESET} <bytes length={len(value)}>")
+                print(f"{Color.YELLOW}{key:20}:{Color.RESET} <bytes length={len(value)}>")
                 if(key.lower() == "icc_profile"):
                     decode_icc_profile(value)
             else:
-                cls.print_tag_value(f"{cls.YELLOW}{key:20}", value)
+                cls.print_tag_value(f"{Color.YELLOW}{key:20}", value)
     
     
     @classmethod
@@ -273,34 +266,29 @@ class JPEGAnalyzer:
     @classmethod
     def print_sof_data(cls, sof_data: dict) -> None:
         if sof_data:
-            print(f"{cls.GREEN}===== SOF Data ====={cls.RESET}")
+            print(f"{Color.GREEN}===== SOF Data ====={Color.RESET}")
             for key, value in sof_data.items():
-                cls.print_tag_value(f"{cls.GREEN}{key:20}", value)
+                cls.print_tag_value(f"{Color.GREEN}{key:20}", value)
         else:
-            print(f"{cls.RED}===== No SOF data found or unable to parse ====={cls.RESET}")
+            print(f"{Color.RED}===== No SOF data found or unable to parse ====={Color.RESET}")
 
 
     @classmethod
     def print_gps_data(cls, gps_data: dict) -> None:
         if gps_data:
-            print(f"{cls.ORANGE}===== GPS IFD ====={cls.RESET}")
+            print(f"{Color.ORANGE}===== GPS IFD ====={Color.RESET}")
             for tag_id, value in gps_data.items():
                 tag_name = ExifTags.GPSTAGS.get(tag_id, f"GPS_Tag_{tag_id}")
                 if isinstance(value, bytes):
                     value = value.decode()
-                cls.print_tag_value(f"{cls.ORANGE}{tag_name:20}", value)
+                cls.print_tag_value(f"{Color.ORANGE}{tag_name:20}", value)
         else:
-            print(f"{cls.RED}===== No GPS data found ====={cls.RESET}")
+            print(f"{Color.RED}===== No GPS data found ====={Color.RESET}")
 
 
     @classmethod
     def analyze_image(cls, path: str) -> None:
         try:
-            print("\n===========================================================================")
-            print("===========================================================================")
-            print(f"Extract Metadata from JPEG file -> {path}")
-            print("===========================================================================\n")
-            
             with Image.open(path) as image:
                 BasicMetadata.print_all_basic_metadata(path, image)
                 
@@ -315,5 +303,5 @@ class JPEGAnalyzer:
                 cls.print_gps_data(gps_ifd)
 
         except Exception as e:
-            print(f"{cls.RED}Error loading metadata: {e}{cls.RESET}")
+            print(f"{Color.RED}Error loading JPEG metadata: {e}{Color.RESET}")
             

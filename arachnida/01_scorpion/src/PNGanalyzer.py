@@ -4,12 +4,8 @@ from PIL import Image
 
 from src.BasicMetadata import BasicMetadata
 from src.JPEGanalyzer import JPEGAnalyzer
-
+from src.Color import Color
 class PNGAnalyzer:
-    RED = "\033[31m"
-    BLUE = "\033[34m"
-    RESET = "\033[0m"
-    GREEN = "\033[32m"
     
     @classmethod
     def analyze_image(cls, path: str) -> None:
@@ -40,10 +36,7 @@ class PNGAnalyzer:
         
         # analyze png image
         try:
-            print("\n===========================================================================")
-            print("===========================================================================")
-            print(f"Extract Metadata from PNG file -> {path}")
-            print("===========================================================================\n")
+            
             
             with Image.open(path) as image:
                 BasicMetadata.print_all_basic_metadata(path, image)
@@ -52,7 +45,7 @@ class PNGAnalyzer:
                 JPEGAnalyzer.print_image_info_items(image)
                 
                 def parse_png_ihdr(data: bytes) -> dict:
-                    print(f"{cls.BLUE}{'PNG Signature':20}:{cls.RESET} {data[:8].hex(' ').upper()}")
+                    print(f"{Color.BLUE}{'PNG Signature':20}:{Color.RESET} {data[:8].hex(' ').upper()}")
                     # Sauter la signature (8 octets)
                     i = 8
                     chunks = {}
@@ -81,13 +74,13 @@ class PNGAnalyzer:
                 
                 with open(path, 'rb') as f:
                     data = f.read()
-                    print(f"\n{cls.BLUE}===== PNG Metadata from IHDR Chunk ====={cls.RESET}")
+                    print(f"\n{Color.BLUE}===== PNG Metadata from IHDR Chunk ====={Color.RESET}")
                     png_metadata = parse_png_ihdr(data)
                     for key, value in png_metadata.items():
-                        print(f"{cls.BLUE}{key:20}:{cls.RESET} {decode_png_value(key, value)}")
+                        JPEGAnalyzer.print_tag_value(f"{Color.BLUE}{key:20}", decode_png_value(key, value))
                         
         except Exception as e:
-            print(f"{cls.RED}Error loading metadata: {e}{cls.RESET}")
+            print(f"{Color.RED}Error loading PNG metadata: {e}{Color.RESET}")
             
 # The IHDR chunk must appear FIRST. It contains:
 
