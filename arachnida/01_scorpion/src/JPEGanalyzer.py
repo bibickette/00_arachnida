@@ -1,10 +1,10 @@
 import struct
 from PIL import Image, ExifTags, ImageCms
 import io
+import xml.etree.ElementTree as ET
 
 from src.BasicMetadata import BasicMetadata
 
-    
 class JPEGAnalyzer:
     GREEN = "\033[32m"
     YELLOW = "\033[33m"
@@ -19,17 +19,6 @@ class JPEGAnalyzer:
         print(f"{tag}:{cls.RESET} {value}")
     
     @classmethod
-    def decode_icc_profile(cls, icc_bytes: bytes) -> dict:
-        profile = ImageCms.ImageCmsProfile(io.BytesIO(icc_bytes))
-        info = ImageCms.getProfileInfo(profile)
-        cls.print_tag_value(f"{cls.PURPLE}{'':5}{'Description':20}", ImageCms.getProfileDescription(profile))
-        cls.print_tag_value(f"{cls.PURPLE}{'':5}{'Copyright':20}", ImageCms.getProfileCopyright(profile))
-        cls.print_tag_value(f"{cls.PURPLE}{'':5}{'Manufacturer':20}", ImageCms.getProfileManufacturer(profile))
-        cls.print_tag_value(f"{cls.PURPLE}{'':5}{'Model':20}", ImageCms.getProfileModel(profile))
-        cls.print_tag_value(f"{cls.PURPLE}{'':5}{'Info':20}", info.strip() if info else None)
-
-    
-    @classmethod
     def print_exif_data(cls, exif_data: dict) -> None:
         if exif_data:
             print(f"{cls.BLUE}===== EXIF Metadata ====={cls.RESET}")
@@ -39,44 +28,135 @@ class JPEGAnalyzer:
                 if isinstance(data, bytes):
                     data = data.decode()
                 cls.print_tag_value(f"{cls.BLUE}{tag:20}", data)
-            
+        else:
+            print(f"{cls.RED}===== No EXIF data found ====={cls.RESET}")
+    
+    @classmethod
+    def print_xmp_data(cls, key, value) -> None:
+        def decode_xmp_value(key: str, value: str) -> str:
+            XMP_VALUE_DECODERS = {
+                "tiff:ResolutionUnit": {
+                    "1": "No absolute unit",
+                    "2": "inch",
+                    "3": "centimeter",
+                },
+                "tiff:Compression": {
+                    "1": "Uncompressed",
+                    "5": "LZW",
+                    "6": "JPEG",
+                    "8": "Deflate",
+                },
+                "tiff:PhotometricInterpretation": {
+                    "0": "WhiteIsZero",
+                    "1": "BlackIsZero",
+                    "2": "RGB",
+                    "3": "Palette color",
+                },
+            }
+            decoder = XMP_VALUE_DECODERS.get(key, {})
+            return decoder.get(str(value), value)
+        
+        def parse_xmp(xmp_data) -> dict:
+            if isinstance(xmp_data, bytes):
+                xmp_data = xmp_data.decode("utf-8", errors="replace")
+
+            root = ET.fromstring(xmp_data)
+            result = {}
+
+            def extract(element, depth=0):
+                def clean_tag(raw_tag: str) -> str:
+                    XMP_NAMESPACES = {
+                        "http://ns.adobe.com/tiff/1.0/"                  : "tiff",
+                        "http://purl.org/dc/elements/1.1/"               : "dc",
+                        "http://iptc.org/std/Iptc4xmpExt/2008-02-29/"    : "Iptc4xmpExt",
+                        "http://ns.adobe.com/xap/1.0/"                   : "xmp",
+                        "http://ns.adobe.com/photoshop/1.0/"             : "photoshop",
+                        "http://ns.adobe.com/xap/1.0/rights/"            : "xmpRights",
+                        "http://www.w3.org/1999/02/22-rdf-syntax-ns#"    : "rdf",
+                        "adobe:ns:meta/"                                  : "x",
+                    }
+                    # raw_tag = "{http://ns.adobe.com/tiff/1.0/}DocumentName"
+                    if "}" not in raw_tag:
+                        return raw_tag
+                    uri, localname = raw_tag[1:].split("}", 1)
+                    prefix = XMP_NAMESPACES.get(uri, uri.split("/")[-1])
+                    return f"{prefix}:{localname}"
+                    # → "tiff:DocumentName"
+                    
+                    
+                # extract
+                for child in element:
+                    tag = clean_tag(child.tag)
+                    # Cas 1 : élément avec du texte direct
+                    # <tiff:DocumentName>goacute</tiff:DocumentName>
+                    if child.text and child.text.strip():
+                        result[tag] = child.text.strip()
+                    # Cas 2 : élément avec des attributs
+                    # <rdf:Description rdf:about="" ...>
+                    for attr_key, attr_val in child.attrib.items():
+                        clean_attr = clean_tag(attr_key)
+                        if clean_attr not in ("rdf:about",) and attr_val.strip():
+                            result[clean_attr] = attr_val
+                    # Cas 3 : élément imbriqué → descendre
+                    # <dc:title><rdf:Alt><rdf:li>goacute</rdf:li></rdf:Alt></dc:title>
+                    extract(child, depth + 1)
+                    
+                    
+            # parse xmp
+            extract(root)
+            return result
+        
+        
+        # print xmp data 
+        data = parse_xmp(value)
+        for key, value in data.items():
+            readable = decode_xmp_value(key, value)
+            print(f"{cls.PURPLE}{'':5}{key:20}:{cls.RESET} {readable}")
+
+    
     @classmethod
     def print_image_info_items(cls, image: Image) -> None:
+        def decode_icc_profile(icc_bytes: bytes) -> dict:
+            profile = ImageCms.ImageCmsProfile(io.BytesIO(icc_bytes))
+            info = ImageCms.getProfileInfo(profile)
+            data = {
+                'Description': ImageCms.getProfileDescription(profile),
+                'Copyright': ImageCms.getProfileCopyright(profile),
+                'Manufacturer': ImageCms.getProfileManufacturer(profile),
+                'Model': ImageCms.getProfileModel(profile),
+                'Info': info.strip() if info else None,
+            }
+            for key, value in data.items():
+                cls.print_tag_value(f"{cls.PURPLE}{'':5}{key:20}", value)
+        
         print(f"{cls.YELLOW}===== Image Info Items ====={cls.RESET}")
         for key, value in image.info.items():
-            if isinstance(value, bytes):                
+            if "xmp" in key.lower():
+                print(f"{cls.YELLOW}{key:20}:{cls.RESET} <bytes length={len(value)}>")
+                cls.print_xmp_data(key, value)
+            elif isinstance(value, bytes):                
                 print(f"{cls.YELLOW}{key:20}:{cls.RESET} <bytes length={len(value)}>")
                 if(key.lower() == "icc_profile"):
-                    cls.decode_icc_profile(value)
-            elif isinstance(value, tuple):
-                print(f"{cls.YELLOW}{key:20}:{cls.RESET} {', '.join(map(str, value))}")
-                    
+                    decode_icc_profile(value)
             else:
-                if "xml" in key.lower():
-                    print(f"{cls.GREEN}XML data{cls.RESET}")
-                    # print(f"{key:20}: {value}")
-                    print(f"{cls.GREEN}end XML data{cls.RESET}")
-                    
-                else:
-                    cls.print_tag_value(f"{cls.YELLOW}{key:20}", value)
-        
-    @classmethod                                
-    def get_exif_byte_order(cls, data: bytes) -> str:
-        # chercher "Exif\x00\x00" puis lire II ou MM juste après
-        idx = data.find(b"Exif\x00\x00")
-        if idx == -1:
-            return None
-        tiff_start = idx + 6 # sauter exif\0\0
-        order = data[tiff_start:tiff_start+2]
-        if order == b"II":
-            return "Little-endian (Intel, II)"
-        elif order == b"MM":
-            return "Big-endian (Motorola, MM)"
-        return None
+                cls.print_tag_value(f"{cls.YELLOW}{key:20}", value)
     
     
     @classmethod
     def parse_jpeg_sof(cls, path: str) -> dict:
+        def get_exif_byte_order(data: bytes) -> str:
+            # chercher "Exif\x00\x00" puis lire II ou MM juste après
+            idx = data.find(b"Exif\x00\x00")
+            if idx == -1:
+                return None
+            tiff_start = idx + 6 # sauter exif\0\0
+            order = data[tiff_start:tiff_start+2]
+            if order == b"II":
+                return "Little-endian (Intel, II)"
+            elif order == b"MM":
+                return "Big-endian (Motorola, MM)"
+            return None
+        
         SOF_MARKERS = {
             # Délimiteurs de base
             # 0xFFD8: "SOI - Start Of Image",
@@ -131,7 +211,7 @@ class JPEGAnalyzer:
             # Étape 3 : est-ce un marqueur SOF ?
             if marker in SOF_MARKERS:
                 if marker == 0xFFE1: # APP1
-                    result["ExifByteOrder"] = cls.get_exif_byte_order(data)
+                    result["ExifByteOrder"] = get_exif_byte_order(data)
                 else: # SOF
                     result["EncodingProcess"] = SOF_MARKERS[marker]
                     # SOF_MARKERS[0xFFC0] = "Baseline DCT, Huffman coding"
@@ -237,15 +317,3 @@ class JPEGAnalyzer:
         except Exception as e:
             print(f"{cls.RED}Error loading metadata: {e}{cls.RESET}")
             
-            
-            
-# alors le plan cest
-# 1. ouvrir limage avec PIL
-# 2. afficher les infos de base (filename, size, format, mode)
-# 3. afficher les données EXIF (en décodant les bytes si besoin)
-# 4. afficher les items de image.info (en décodant les bytes si besoin)
-# 5. lire les octets du fichier pour trouver le SOF et extraire les infos de compression, dimensions, échantillonnage
-# 6. afficher les métadonnées de base du fichier (taille, dates, permissions)
-# 7. afficher l'ordre des octets dans l'EXIF (II ou MM)
-# 8. afficher les données GPS si présentes (en décodant les bytes si besoin)
-# 9. gérer les erreurs lors de l'ouverture ou de la lecture des métadonnées
