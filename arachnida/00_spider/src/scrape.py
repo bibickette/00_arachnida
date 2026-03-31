@@ -205,6 +205,7 @@ class Scraper:
             try:
                 url, depth = self.queue.get(timeout=5) # quand on get il est automatiquement retiré de la queue, timeout pour éviter de rester bloqué indéfiniment si la queue est vide
             except Empty:
+                self.queue.task_done()
                 return
             
             try:
