@@ -39,9 +39,6 @@ class PNGAnalyzer:
             
             with Image.open(path) as image:
                 BasicMetadata.print_all_basic_metadata(path, image)
-                exif_data = image.getexif()
-                JPEGAnalyzer.print_exif_data(exif_data)
-                JPEGAnalyzer.print_image_info_items(image)
                 
                 def parse_png_ihdr(data: bytes) -> dict:
                     print(f"{Color.BLUE}{'PNG Signature':20}:{Color.RESET} {data[:8].hex(' ').upper()}")

@@ -124,9 +124,7 @@ class GIFAnalyzer:
         try:
             with Image.open(path) as image:
                 BasicMetadata.print_all_basic_metadata(path, image)
-                exif_data = image.getexif()
-                JPEGAnalyzer.print_exif_data(exif_data)
-                JPEGAnalyzer.print_image_info_items(image)
+
                 with open(path, "rb") as f:
                     data = f.read()
                 print(f"gif signature : {data[0:6].decode()}")
