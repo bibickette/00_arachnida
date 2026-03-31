@@ -3,8 +3,9 @@ import argparse
 import sys
 import mimetypes
 
-from src.JPEGanalyzer import JPEGAnalyzer
-from src.PNGanalyzer import PNGAnalyzer
+from src.JPEGAnalyzer import JPEGAnalyzer
+from src.PNGAnalyzer import PNGAnalyzer
+from src.GIFAnalyzer import GIFAnalyzer
 from src.Color import Color
 
 
@@ -30,7 +31,7 @@ def main() -> int:
     # print(f"files = {files}")
     mime_to_function = {"image/jpeg": JPEGAnalyzer.analyze_image, 
                         "image/png": PNGAnalyzer.analyze_image, 
-                        "image/gif": error_not_available, 
+                        "image/gif": GIFAnalyzer.analyze_image, 
                         "image/bmp": error_not_available}
 
     for file in files:

@@ -3,7 +3,7 @@ from PIL import Image
 
 
 from src.BasicMetadata import BasicMetadata
-from src.JPEGanalyzer import JPEGAnalyzer
+from src.JPEGAnalyzer import JPEGAnalyzer
 from src.Color import Color
 class PNGAnalyzer:
     
@@ -18,7 +18,6 @@ class PNGAnalyzer:
                     "4": "Grayscale with alpha",
                     "6": "Truecolor with alpha"
                 },
-                # Add more decoders for other keys if needed
                 "compression_method": {
                     "0": "Deflate/inflate"
                 },
@@ -74,10 +73,10 @@ class PNGAnalyzer:
                 
                 with open(path, 'rb') as f:
                     data = f.read()
-                    print(f"\n{Color.BLUE}===== PNG Metadata from IHDR Chunk ====={Color.RESET}")
-                    png_metadata = parse_png_ihdr(data)
-                    for key, value in png_metadata.items():
-                        JPEGAnalyzer.print_tag_value(f"{Color.BLUE}{key:20}", decode_png_value(key, value))
+                print(f"\n{Color.BLUE}===== PNG Metadata from IHDR Chunk ====={Color.RESET}")
+                png_metadata = parse_png_ihdr(data)
+                for key, value in png_metadata.items():
+                    JPEGAnalyzer.print_tag_value(f"{Color.BLUE}{key:20}", decode_png_value(key, value))
                         
         except Exception as e:
             print(f"{Color.RED}Error loading PNG metadata: {e}{Color.RESET}")

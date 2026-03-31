@@ -131,6 +131,8 @@ class JPEGAnalyzer:
                 print(f"{Color.YELLOW}{key:20}:{Color.RESET} <bytes length={len(value)}>")
                 if(key.lower() == "icc_profile"):
                     decode_icc_profile(value)
+                elif key.lower() != "exif":
+                    cls.print_tag_value(f"{Color.PURPLE}{'':5}{'decoded':20}", value.decode())
             else:
                 cls.print_tag_value(f"{Color.YELLOW}{key:20}", value)
     
@@ -291,13 +293,12 @@ class JPEGAnalyzer:
         try:
             with Image.open(path) as image:
                 BasicMetadata.print_all_basic_metadata(path, image)
+                exif_data = image.getexif()
+                cls.print_exif_data(exif_data)
+                cls.print_image_info_items(image)
                 
                 sof = cls.parse_jpeg_sof(path)
                 cls.print_sof_data(sof)
-                
-                exif_data = image.getexif()
-                cls.print_image_info_items(image)
-                cls.print_exif_data(exif_data)
                 
                 gps_ifd = image.getexif().get_ifd(ExifTags.IFD.GPSInfo)
                 cls.print_gps_data(gps_ifd)
