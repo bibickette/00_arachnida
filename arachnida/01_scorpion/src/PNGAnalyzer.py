@@ -63,7 +63,9 @@ class PNGAnalyzer:
 
                         elif chunk_type == 'tEXt': # métadonnées texte
                             key, val = chunk_data.split(b'\x00', 1)
-                            chunks[BasicMetadata.decode_value(key)] = BasicMetadata.decode_value(val)
+                            chunks[f"Text - {BasicMetadata.decode_value(key)}"] = BasicMetadata.decode_value(val)
+                        else:
+                            chunks[f"Chunk - {chunk_type}"] = f"{length} bytes"
 
                         
                         i += 12 + length  # 4 length + 4 type + data + 4 CRC
