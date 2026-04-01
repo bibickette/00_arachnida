@@ -11,8 +11,8 @@ from src.Color import Color
 
 class BasicMetadata:
     
-    @classmethod
-    def __print_tag_value(cls, tag, value) -> None:
+    @staticmethod  
+    def __print_tag_value(tag, value) -> None:
         print(f"{Color.ORANGE}{tag:20}:{Color.RESET} {value}")
 
 
@@ -39,19 +39,24 @@ class BasicMetadata:
         p = Path(path)
         mime, _ = mimetypes.guess_type(path)
         
-        cls.__print_tag_value("Path", image.filename)
-        cls.__print_tag_value("FileName", p.name)
-        cls.__print_tag_value("FileSize", f"{st.st_size} bytes")
-        cls.__print_tag_value("ImageSize", image.size)
-        cls.__print_tag_value("ImageMode", image.mode)
-        cls.__print_tag_value("ImageFormat", image.format)
-        cls.__print_tag_value("FileTypeExtension", p.suffix.lstrip(".").lower())
-        cls.__print_tag_value("MIMEType", mime or "unknown")
-        cls.__print_tag_value("FileModifyDate", datetime.fromtimestamp(st.st_mtime))
-        cls.__print_tag_value("FileAccessDate", datetime.fromtimestamp(st.st_atime))
-        cls.__print_tag_value("FileInodeChangeDate", datetime.fromtimestamp(st.st_ctime))
-        cls.__print_tag_value("FilePermissions", cls.__format_permissions(st.st_mode))
+        data = {
+            "Path": image.filename,
+            "FileName": p.name,
+            "FileSize": f"{st.st_size} bytes",
+            "ImageSize": image.size,
+            "ImageMode": image.mode,
+            "ImageFormat": image.format,
+            "FileTypeExtension": p.suffix.lstrip(".").lower(),
+            "MIMEType": mime or "unknown",
+            "FileModifyDate": datetime.fromtimestamp(st.st_mtime),
+            "FileAccessDate": datetime.fromtimestamp(st.st_atime),
+            "FileInodeChangeDate": datetime.fromtimestamp(st.st_ctime),
+            "FilePermissions": cls.__format_permissions(st.st_mode)
+        }
         
+        for key, value in data.items():
+            cls.__print_tag_value(key, value)
+            
 
     @classmethod
     def __print_gps_data(cls, gps_data: dict) -> None:
@@ -207,6 +212,7 @@ class BasicMetadata:
         gps_ifd = exif_data.get_ifd(ExifTags.IFD.GPSInfo)
         cls.__print_exif_data(exif_data)
         cls.__print_gps_data(gps_ifd)
+        
         cls.__print_image_info_items(image)
         
         # print(f"{Color.GREEN}End of Basic Metadata{Color.RESET}")

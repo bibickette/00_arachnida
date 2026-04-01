@@ -7,14 +7,15 @@ from src.JPEGAnalyzer import JPEGAnalyzer
 from src.Color import Color
 
 
-# print tous les attributs dans image 
+# print tous les attributs dans image
 def print_all_image_attributes(image: Image.Image) -> None:
     try:
         for attr in dir(image):
             if not attr.startswith("_") and not callable(getattr(image, attr)):
                 print(f"{Color.YELLOW}{attr:20}:{Color.RESET} {getattr(image, attr)}")
-    except Exception as e:            
+    except Exception as e:
         print(f"{Color.RED}Error loading GIF metadata: {e}{Color.RESET}")
+
 
 def skip_sub_blocks(data: bytes, i: int) -> int:
     # sub-blocks: [size][payload...][size][payload...] ... [0x00]
@@ -26,90 +27,102 @@ def skip_sub_blocks(data: bytes, i: int) -> int:
         i += size
     return i
 
-def count_gif_frames(data: bytes) -> int:
-    if len(data) < 13 or data[:3] != b"GIF":
-        raise ValueError("Not a GIF")
 
-    i = 6  # header
-    # LSD
-    width, height, packed, bg, aspect = struct.unpack_from("<HHBBB", data, i)
-    i += 7
+# Skip color table if present, return new index
+def skip_color_table(packed: bytes, i: int) -> int:
+    ct_flag = (packed >> 7) & 1
+    ct_size = 2 ** ((packed & 0b111) + 1)
+    if ct_flag:
+        i += 3 * ct_size  # 3 bytes per color
+    return i
 
-    # Global Color Table?
-    gct_flag = (packed >> 7) & 1
-    gct_size = 2 ** ((packed & 0b111) + 1)
-    if gct_flag:
-        i += 3 * gct_size  # 3 bytes per color
 
-    frames = 0
-
-    while i < len(data):
-        b = data[i]
-
-        if b == 0x3B:  # Trailer
-            break
-
-        if b == 0x21:  # Extension
-            if i + 1 >= len(data):
-                break
-            label = data[i + 1]
-            i += 2
-
-            if label == 0xF9:  # Graphic Control Extension
-                # block size should be 4, then 4 bytes, then terminator 0
+def parse_gif(data: bytes):
+    def handle_extension(data: bytes, i: int) -> int:
+        i += 1  # skip extension introducer (0x21)
+        if i >= len(data):
+            return -1
+        label = data[i]
+        i += 1  # skip label
+        match label:
+            case 0xF9:  # Graphic Control Extension
+            # block size should be 4, then 4 bytes, then terminator 0
                 i = skip_sub_blocks(data, i)  # skip fixed data
                 if i < len(data) and data[i] == 0x00:
                     i += 1
-            else:
-                # Comment(0xFE), Application(0xFF), PlainText(0x01)
-                # They all use sub-blocks after an initial fixed part in some cases.
-                if label == 0xFE:  # Comment Extension
-                    comment = ""
-                    while i < len(data):
-                        block_size = data[i]
-                        i += 1
-                        if block_size == 0:    # bloc de taille 0 = fin
-                            break
-                        comment += data[i:i+block_size].decode("latin-1", errors="replace")
-                        i += block_size
-                    print(f"{Color.BLUE}Comment Extension:{Color.RESET} {comment}")
-                elif label == 0x01:
-                    # plain text extension has 1 byte block size (should be 12) + that many bytes
-                    i = skip_sub_blocks(data, i)
-                # then sub-blocks
+            case 0xFE:  # Comment Extension
+                comment = ""
+                while i < len(data):
+                    block_size = data[i]
+                    i += 1
+                    if block_size == 0:  # bloc de taille 0 = fin
+                        break
+                    comment += data[i : i + block_size].decode("latin-1", errors="replace")
+                    i += block_size
+                print(f"{Color.BLUE}Comment Extension:{Color.RESET} {comment}")
+            case _: # Comment(0xFE), Application(0xFF), PlainText(0x01)
                 i = skip_sub_blocks(data, i)
 
-            continue
+        return i
+    
+    def handle_image_descriptor(data: bytes, i: int) -> int:
+        i += 1  # skip image separator
+        if i + 9 > len(data):
+            return -1
 
-        if b == 0x2C:  # Image Descriptor (frame)
-            frames += 1
-            i += 1
-            if i + 9 > len(data):
+        left, top, w, h, ipacked = struct.unpack_from("<HHHHB", data, i)
+        i += 9  # skip image descriptor: left(2), top(2), w(2), h(2), packed(1)
+
+        i = skip_color_table(ipacked, i)
+
+        if i >= len(data):
+            return -1
+
+        i += 1  # skip LZW min code size (toujours 1 octet)
+
+        i = skip_sub_blocks(data, i)  # skip image data sub-blocks
+        return i
+    
+    def parse_gif_header(data: bytes, i: int)-> int:
+        signature = data[0:6]
+        if signature[:3] != b"GIF":
+            raise ValueError("Not a GIF")
+        # screen descriptor: ( 2 + 2 + 1 + 1 + 1 )
+        screen_width, screen_height, packed, bg_color_index, aspect = (
+            struct.unpack_from("<HHBBB", data, i)
+        )
+        
+        JPEGAnalyzer.print_tag_value(f"{Color.BLUE}{'Signature':20}", BasicMetadata.decode_value(signature.decode()))
+        JPEGAnalyzer.print_tag_value(f"{Color.BLUE}{'Signature hex':20}", signature.hex(' ').upper())
+        JPEGAnalyzer.print_tag_value(f"{Color.BLUE}{'Screen Width':20}", screen_width)
+        JPEGAnalyzer.print_tag_value(f"{Color.BLUE}{'Screen Height':20}", screen_height)
+        JPEGAnalyzer.print_tag_value(f"{Color.BLUE}{'Global Color Table Flag':20}", (packed >> 7) & 1)
+        JPEGAnalyzer.print_tag_value(f"{Color.BLUE}{'Background Color Index':20}", bg_color_index)
+        return packed
+
+    
+    i = 6 # après la signature de 6 octets
+    packed = parse_gif_header(data, i)
+    i += 7  # skip screen descriptor ( 2 + 2 + 1 + 1 + 1 )
+    
+    i = skip_color_table(packed, i)
+    frames = 0
+    while i < len(data):
+        if i == -1:
+            break
+        match data[i]:
+            case 0x3B:  # Trailer
                 break
-
-            # descriptor: left(2), top(2), w(2), h(2), packed(1)
-            left, top, w, h, ipacked = struct.unpack_from("<HHHHB", data, i)
-            i += 9
-
-            # Local Color Table?
-            lct_flag = (ipacked >> 7) & 1
-            lct_size = 2 ** ((ipacked & 0b111) + 1)
-            if lct_flag:
-                i += 3 * lct_size
-
-            # LZW min code size  1 octet (toujours)
-            if i >= len(data):
-                break
-            i += 1
-
-            # image data sub-blocks
-            i = skip_sub_blocks(data, i)
-            continue
-
-        # Si on tombe sur un octet inattendu, on avance (ou on peut raise)
-        i += 1
-
+            case 0x21:  # Extension
+                i = handle_extension(data, i)
+                continue
+            case 0x2C:  # Image Descriptor (frame)
+                frames += 1
+                i = handle_image_descriptor(data, i)
+            case _:  # Invalide
+                i += 1
     return frames
+
 
 class GIFAnalyzer:
     @classmethod
@@ -121,37 +134,13 @@ class GIFAnalyzer:
 
                 with open(path, "rb") as f:
                     data = f.read()
-                print(f"gif signature : {BasicMetadata.decode_value(data[0:6])}")
-                print(f"gif signature hex: {data[0:6].hex(' ').upper()}")
-                print(f"screen width : {int.from_bytes(data[6:8], 'little')}")
-                print(f"screen height : {int.from_bytes(data[8:10], 'little')}")
-                print(f"global color table flag : {data[10] >> 7}")
-                print(f"background color index : {data[11]}")
-
-                print(f"count gif frames : {count_gif_frames(data)}")
-                # frame_count = 0
-                # while i < len(data):  # Look for gif terminator
-                #     if data[i] == 0x3B:  # Trailer
-                #         print(f"Trailer found at offset: {i}, data: {data[i]}")
-                #     if data[i] == 0x2C:  # Image Descriptor
-                #         print(f"Image Descriptor found at offset: {i}, data: {data[i]}")
-                #         frame_count += 1
-                #     i += 1
-                # print(f"i : {i}, data[i]: {data[i] if i < len(data) else 'EOF'}")
-                # print(f"Frame Count: {frame_count}")
-                # # # print(f"data : {data[i:i+10]}")
-                # while i < len(data):
-                #     print(f"data : {data[i:i+10]}")
-                #     i += 10
-        
-                
+                    
+                print(f"count gif frames parse : {parse_gif(data)}")
                 
                 n = getattr(image, "n_frames", 1)
                 print("n_frames:", n)
                 print("is_animated:", getattr(image, "is_animated", n > 1))
-                
 
-                
                 # n = getattr(image, "n_frames", 1)
                 # durations = []
 
