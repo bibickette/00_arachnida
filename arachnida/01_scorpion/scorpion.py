@@ -49,3 +49,8 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main()) #  raise SystemExit(main()) ; cest un equivalent pour return un code retour dans python
+    
+    
+    # todo :
+    # faire mieux le gif
+    # faire le bmp

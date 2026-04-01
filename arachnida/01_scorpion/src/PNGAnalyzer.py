@@ -47,6 +47,7 @@ class PNGAnalyzer:
                     chunks = {}
                     while i < len(data):
                         length = int.from_bytes(data[i:i+4], 'big')
+                        
                         chunk_type = data[i+4:i+8].decode('ascii')
                         chunk_data = data[i+8:i+8+length]
                         # CRC = data[i+8+length:i+12+length]
@@ -62,7 +63,7 @@ class PNGAnalyzer:
 
                         elif chunk_type == 'tEXt': # métadonnées texte
                             key, val = chunk_data.split(b'\x00', 1)
-                            chunks[key.decode()] = val.decode()
+                            chunks[BasicMetadata.decode_value(key)] = BasicMetadata.decode_value(val)
 
                         
                         i += 12 + length  # 4 length + 4 type + data + 4 CRC

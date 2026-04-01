@@ -57,10 +57,7 @@ def count_gif_frames(data: bytes) -> int:
 
             if label == 0xF9:  # Graphic Control Extension
                 # block size should be 4, then 4 bytes, then terminator 0
-                if i >= len(data):
-                    break
-                block_size = data[i]
-                i += 1 + block_size  # skip fixed data
+                i = skip_sub_blocks(data, i)  # skip fixed data
                 if i < len(data) and data[i] == 0x00:
                     i += 1
             else:
@@ -78,10 +75,7 @@ def count_gif_frames(data: bytes) -> int:
                     print(f"{Color.BLUE}Comment Extension:{Color.RESET} {comment}")
                 elif label == 0x01:
                     # plain text extension has 1 byte block size (should be 12) + that many bytes
-                    if i >= len(data):
-                        break
-                    pt_block_size = data[i]
-                    i += 1 + pt_block_size
+                    i = skip_sub_blocks(data, i)
                 # then sub-blocks
                 i = skip_sub_blocks(data, i)
 
@@ -103,7 +97,7 @@ def count_gif_frames(data: bytes) -> int:
             if lct_flag:
                 i += 3 * lct_size
 
-            # LZW min code size
+            # LZW min code size  1 octet (toujours)
             if i >= len(data):
                 break
             i += 1
@@ -127,7 +121,7 @@ class GIFAnalyzer:
 
                 with open(path, "rb") as f:
                     data = f.read()
-                print(f"gif signature : {data[0:6].decode()}")
+                print(f"gif signature : {BasicMetadata.decode_value(data[0:6])}")
                 print(f"gif signature hex: {data[0:6].hex(' ').upper()}")
                 print(f"screen width : {int.from_bytes(data[6:8], 'little')}")
                 print(f"screen height : {int.from_bytes(data[8:10], 'little')}")
