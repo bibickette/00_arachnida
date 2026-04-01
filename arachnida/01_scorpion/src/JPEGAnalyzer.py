@@ -5,11 +5,6 @@ from src.BasicMetadata import BasicMetadata
 from src.Color import Color
 
 class JPEGAnalyzer:
-    @staticmethod
-    def print_tag_value(tag, value) -> None:
-        print(f"{tag}:{Color.RESET} {value}")
-            
-    
     @classmethod
     def parse_jpeg_sof(cls, path: str) -> dict:
         def get_exif_byte_order(data: bytes) -> str:
@@ -143,7 +138,7 @@ class JPEGAnalyzer:
         if sof_data:
             print(f"{Color.GREEN}===== SOF Data ====={Color.RESET}")
             for key, value in sof_data.items():
-                cls.print_tag_value(f"{Color.GREEN}{key:20}", value)
+                BasicMetadata.print_tag_value(f"{Color.GREEN}{key:20}", value)
         else:
             print(f"{Color.RED}===== No SOF data found or unable to parse ====={Color.RESET}")
 

@@ -46,7 +46,7 @@ def parse_gif(data: bytes):
         i += 1  # skip label
         match label:
             case 0xF9:  # Graphic Control Extension
-            # block size should be 4, then 4 bytes, then terminator 0
+                # block size should be 4, then 4 bytes, then terminator 0
                 i = skip_sub_blocks(data, i)  # skip fixed data
                 if i < len(data) and data[i] == 0x00:
                     i += 1
@@ -60,6 +60,8 @@ def parse_gif(data: bytes):
                     comment += data[i : i + block_size].decode("latin-1", errors="replace")
                     i += block_size
                 print(f"{Color.BLUE}Comment Extension:{Color.RESET} {comment}")
+            case 0x01:  # Plain Text Extension
+                print(f"plain text value: {data[i:i+12]}")  # 12 bytes de données fixes
             case _: # Comment(0xFE), Application(0xFF), PlainText(0x01)
                 i = skip_sub_blocks(data, i)
 
@@ -92,12 +94,18 @@ def parse_gif(data: bytes):
             struct.unpack_from("<HHBBB", data, i)
         )
         
-        JPEGAnalyzer.print_tag_value(f"{Color.BLUE}{'Signature':20}", BasicMetadata.decode_value(signature.decode()))
-        JPEGAnalyzer.print_tag_value(f"{Color.BLUE}{'Signature hex':20}", signature.hex(' ').upper())
-        JPEGAnalyzer.print_tag_value(f"{Color.BLUE}{'Screen Width':20}", screen_width)
-        JPEGAnalyzer.print_tag_value(f"{Color.BLUE}{'Screen Height':20}", screen_height)
-        JPEGAnalyzer.print_tag_value(f"{Color.BLUE}{'Global Color Table Flag':20}", (packed >> 7) & 1)
-        JPEGAnalyzer.print_tag_value(f"{Color.BLUE}{'Background Color Index':20}", bg_color_index)
+        data = {
+            "Signature": BasicMetadata.decode_value(signature.decode()),
+            "Signature hex": signature.hex(' ').upper(),
+            "Screen Width": screen_width,
+            "Screen Height": screen_height,
+            "Global Color Table Flag": (packed >> 7) & 1,
+            "Background Color Index": bg_color_index
+        }
+        
+        print(f"{Color.GREEN}===== GIF Header ====={Color.RESET}")
+        for key, value in data.items():
+            BasicMetadata.print_tag_value(f"{Color.GREEN}{key:25}", value)
         return packed
 
     
@@ -115,7 +123,6 @@ def parse_gif(data: bytes):
                 break
             case 0x21:  # Extension
                 i = handle_extension(data, i)
-                continue
             case 0x2C:  # Image Descriptor (frame)
                 frames += 1
                 i = handle_image_descriptor(data, i)

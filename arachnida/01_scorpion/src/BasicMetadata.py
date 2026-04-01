@@ -12,8 +12,8 @@ from src.Color import Color
 class BasicMetadata:
     
     @staticmethod  
-    def __print_tag_value(tag, value) -> None:
-        print(f"{Color.ORANGE}{tag:20}:{Color.RESET} {value}")
+    def print_tag_value(tag, value) -> None:
+        print(f"{tag}:{Color.RESET} {value}")
 
 
     @staticmethod
@@ -55,7 +55,7 @@ class BasicMetadata:
         }
         
         for key, value in data.items():
-            cls.__print_tag_value(key, value)
+            cls.print_tag_value(f"{Color.ORANGE}{key:20}", value)
             
 
     @classmethod
@@ -64,7 +64,7 @@ class BasicMetadata:
             print(f"{Color.PURPLE}===== GPS IFD ====={Color.RESET}")
             for tag_id, value in gps_data.items():
                 tag_name = ExifTags.GPSTAGS.get(tag_id, f"GPS_Tag_{tag_id}")
-                cls.__print_tag_value(f"{Color.PURPLE}{tag_name:20}", cls.decode_value(value))
+                cls.print_tag_value(f"{Color.PURPLE}{tag_name:20}", cls.decode_value(value))
         else:
             print(f"{Color.RED}===== No GPS data found ====={Color.RESET}")
             
@@ -75,7 +75,7 @@ class BasicMetadata:
             for tag_id in exif_data:
                 tag = ExifTags.TAGS.get(tag_id, tag_id)
                 data = exif_data.get(tag_id)
-                cls.__print_tag_value(f"{Color.BLUE}{tag:20}", cls.decode_value(data))
+                cls.print_tag_value(f"{Color.BLUE}{tag:20}", cls.decode_value(data))
         else:
             print(f"{Color.RED}===== No EXIF data found ====={Color.RESET}")
     
@@ -176,7 +176,7 @@ class BasicMetadata:
                 'Info': info.strip() if info else None,
             }
             for key, value in data.items():
-                cls.__print_tag_value(f"{Color.PURPLE}{'':5}{key:20}", value)
+                cls.print_tag_value(f"{Color.PURPLE}{'':5}{key:20}", value)
         
         print(f"{Color.YELLOW}===== Image Info Items ====={Color.RESET}")
         for key, value in image.info.items():
@@ -188,9 +188,9 @@ class BasicMetadata:
                 if(key.lower() == "icc_profile"):
                     decode_icc_profile(value)
                 elif key.lower() != "exif":
-                    cls.__print_tag_value(f"{Color.PURPLE}{'':5}{'decoded':20}", cls.decode_value(value))
+                    cls.print_tag_value(f"{Color.PURPLE}{'':5}{'decoded':20}", cls.decode_value(value))
             else:
-                cls.__print_tag_value(f"{Color.YELLOW}{key:20}", cls.decode_value(value))
+                cls.print_tag_value(f"{Color.YELLOW}{key:20}", cls.decode_value(value))
                 
     @staticmethod
     def decode_value(value) -> str:

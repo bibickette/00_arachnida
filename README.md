@@ -24,4 +24,7 @@ https://metacpan.org/dist/Image-MetaData-JPEG/view/lib/Image/MetaData/JPEG/Struc
 https://www.ccoderun.ca/programming/2017-01-31_jpeg/
 
 PNG
-https://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html
+https://www.libpng.org/pub/png/spec/1.2/PNG-Contents.html
+
+GIF
+https://www.w3.org/Graphics/GIF/spec-gif87.txt

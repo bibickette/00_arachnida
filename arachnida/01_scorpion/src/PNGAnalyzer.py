@@ -74,7 +74,7 @@ class PNGAnalyzer:
                 print(f"\n{Color.BLUE}===== PNG Metadata from IHDR Chunk ====={Color.RESET}")
                 png_metadata = parse_png_ihdr(data)
                 for key, value in png_metadata.items():
-                    JPEGAnalyzer.print_tag_value(f"{Color.BLUE}{key:20}", decode_png_value(key, value))
+                    BasicMetadata.print_tag_value(f"{Color.BLUE}{key:20}", decode_png_value(key, value))
                         
         except Exception as e:
             print(f"{Color.RED}Error loading PNG metadata: {e}{Color.RESET}")

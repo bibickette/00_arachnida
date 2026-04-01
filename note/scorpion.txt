@@ -142,3 +142,91 @@ Type	reçoit	sert à
 instance method	self	agir sur un objet
 classmethod	cls	agir sur la classe
 staticmethod	rien	helper logique
+
+
+
+
+Copilot said: Oui, juste après la signature `GIF89a`, tu
+Oui, juste après la signature GIF89a, tu as le Logical Screen Descriptor (LSD) qui fait 7 bytes, et il commence bien par Width et Height.
+
+Ta séquence :
+
+b'&\x01\x80\x00\xf6\x00\x00' (7 bytes)
+
+Décomposition (spéc GIF) :
+
+Canvas Width (2 bytes, little-endian)
+Canvas Height (2 bytes, little-endian)
+Packed Fields (1 byte)
+Background Color Index (1 byte)
+Pixel Aspect Ratio (1 byte)
+Donc ici :
+
+1) Width / Height
+Les GIF utilisent du little-endian (contrairement à JPEG souvent).
+
+Width = bytes 26 01 (c’est 0x0126) → 294
+Height = bytes 80 00 (c’est 0x0080) → 128
+Tu peux le décoder comme ça :
+
+gif_lsd_decode.py
+import struct
+
+lsd = b'&\x01\x80\x00\xf6\x00\x00'
+width, height, packed, bg, aspect = struct.unpack("<HHBBB", lsd)
+
+print(width, height)      # 294 128
+2) C’est quoi le 0x80 ?
+Dans ton dump, 0x80 est le premier octet de la hauteur (height low byte), pas un champ séparé.
+
+Height = 0x0080 = 128, donc tu vois \x80\x00.
+
+3) Le byte 0xF6 (packed fields), c’est quoi ?
+0xF6 = 11110110 en binaire. Dans le LSD, ça se décompose :
+
+bit 7 : Global Color Table Flag (GCT)
+1 → oui, il y a une palette globale après le LSD
+bits 6–4 : Color Resolution (valeur + 1)
+ici 111 = 7 → “8 bits” (souvent présenté comme “depth 8”)
+bit 3 : Sort Flag
+ici 0 → non triée (souvent ignoré)
+bits 2–0 : Size of Global Color Table (valeur + 1, puissance de 2)
+ici 110 = 6 → taille = 2^(6+1)= 128 couleurs dans la palette globale
+Donc ce 0xF6 te dit notamment : palette globale de 128 couleurs.
+
+Tu peux décoder ça :
+
+gif_packed_decode.py
+packed = 0xF6
+gct_flag = (packed >> 7) & 1
+color_resolution = ((packed >> 4) & 0b111) + 1
+sort_flag = (packed >> 3) & 1
+gct_size = 2 ** (((packed & 0b111)) + 1)
+
+4) Background / Aspect
+Background Color Index = 0x00 → index 0 dans la palette
+Pixel Aspect Ratio = 0x00 → “non spécifié” (cas le plus courant)
+Si tu veux, donne-moi les bytes suivants juste après ces 7 bytes : si GCT flag = 1, les octets suivants doivent être la Global Color Table de taille 3 * gct_size (= 384 bytes ici), puis ensuite arrivent les blocs (Graphic Control Extension, Image Descriptor, etc.).
+
+
+
+
+Extraire les 4 bits de gauche :
+pythony_h = (y_sampling >> 4) & 0xF
+
+# >> 4 : décale tous les bits de 4 positions vers la droite
+# 0010 0010  →  0000 0010   (les 4 bits de gauche arrivent à droite)
+#
+# & 0xF : masque = 0000 1111, garde seulement les 4 bits de droite
+# 0000 0010  →  0000 0010 = 2
+Extraire les 4 bits de droite :
+pythony_v = y_sampling & 0xF
+
+# & 0xF : masque = 0000 1111, efface les 4 bits de gauche
+# 0010 0010
+# 0000 1111
+# ─────────
+# 0000 0010 = 2
+
+
+
