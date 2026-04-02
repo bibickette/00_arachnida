@@ -52,5 +52,4 @@ if __name__ == "__main__":
     
     
     # todo :
-    # faire mieux le gif
     # faire le bmp

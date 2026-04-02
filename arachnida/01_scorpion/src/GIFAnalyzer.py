@@ -64,14 +64,15 @@ class GIFAnalyzer:
                             break
                         comment += data[i : i + block_size].decode("latin-1", errors="replace")
                         i += block_size
-                    print(f"{Color.BLUE}Comment Extension:{Color.RESET} {comment}")
+                    print(f"{Color.BLUE}===== Chunk Comment Extension ====={Color.RESET}")
+                    BasicMetadata.print_tag_value(f"{Color.BLUE}{'Comment':20}", comment)
                 case 0xFF:  # Application Extension
-                    print(f"{Color.BLUE}Application Extension:{Color.RESET}")
-                    print(f"app identifier: {BasicMetadata.decode_value(data[i+1:i+9])}")
-                    print(f"app authentication code: {BasicMetadata.decode_value(data[i+9:i+12])}")
+                    print(f"{Color.BLUE}===== Chunk Application Extension ====={Color.RESET}")
+                    BasicMetadata.print_tag_value(f"{Color.BLUE}{'App Identifier':20}", BasicMetadata.decode_value(data[i+1:i+9]))
+                    BasicMetadata.print_tag_value(f"{Color.BLUE}{'App Auth Code':20}", BasicMetadata.decode_value(data[i+9:i+12]))
                     i += 12 # skip application block header (1 size + 8 identifier + 3 auth code)
                     i = skip_sub_blocks(data, i)
-                case _: # PlainText(0x01)
+                case 0x01: # PlainText
                     i = skip_sub_blocks(data, i)
 
             return i
@@ -149,14 +150,15 @@ class GIFAnalyzer:
                     data = f.read()
                 
                 frame_count = cls.parse_gif(data)
-                print(f"count gif frames parse : {frame_count}")
-                
-                # n = getattr(image, "n_frames", 1)
+                print(f"{Color.ORANGE}===== Frames Info ====={Color.RESET}")
+                data = {"Frame Count": frame_count}
                 duration = image.info.get('duration')
                 if duration is not None:
-                    print(f"duration of one frame (ms): {duration}")
-                    print(f"total time (s): {(duration * frame_count / 1000):.2f}")
-                    print(f"======")
+                    data["One frame duration (ms)"] = duration
+                    data["Total time (s)"] = f"{(duration * frame_count / 1000):.2f}"
+                
+                for key, value in data.items():
+                    BasicMetadata.print_tag_value(f"{Color.ORANGE}{key:25}", value)
 
         except Exception as e:
             print(f"{Color.RED}Error loading GIF metadata: {e}{Color.RESET}")
