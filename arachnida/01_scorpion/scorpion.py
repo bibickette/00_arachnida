@@ -6,6 +6,7 @@ import mimetypes
 from src.JPEGAnalyzer import JPEGAnalyzer
 from src.PNGAnalyzer import PNGAnalyzer
 from src.GIFAnalyzer import GIFAnalyzer
+from src.BMPAnalyzer import BMPAnalyzer
 from src.Color import Color
 
 
@@ -32,7 +33,7 @@ def main() -> int:
     mime_to_function = {"image/jpeg": JPEGAnalyzer.analyze_image, 
                         "image/png": PNGAnalyzer.analyze_image, 
                         "image/gif": GIFAnalyzer.analyze_image, 
-                        "image/bmp": error_not_available}
+                        "image/bmp": BMPAnalyzer.analyze_image}
 
     for file in files:
         mime, _ = mimetypes.guess_type(file)

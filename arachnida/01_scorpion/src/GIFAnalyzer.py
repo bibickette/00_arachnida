@@ -151,13 +151,13 @@ class GIFAnalyzer:
                 
                 frame_count = cls.parse_gif(data)
                 print(f"{Color.ORANGE}===== Frames Info ====={Color.RESET}")
-                data = {"Frame Count": frame_count}
+                data_gif = {"Frame Count": frame_count}
                 duration = image.info.get('duration')
                 if duration is not None:
-                    data["One frame duration (ms)"] = duration
-                    data["Total time (s)"] = f"{(duration * frame_count / 1000):.2f}"
+                    data_gif["One frame duration (ms)"] = duration
+                    data_gif["Total time (s)"] = f"{(duration * frame_count / 1000):.2f}"
                 
-                for key, value in data.items():
+                for key, value in data_gif.items():
                     BasicMetadata.print_tag_value(f"{Color.ORANGE}{key:25}", value)
 
         except Exception as e:
