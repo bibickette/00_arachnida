@@ -8,7 +8,6 @@ class JPEGAnalyzer:
     @classmethod
     def parse_jpeg_sof(cls, data: bytes) -> dict:
         def get_exif_byte_order(data: bytes) -> str:
-            # chercher "Exif\x00\x00" puis lire II ou MM juste après
             idx = data.find(b"Exif\x00\x00")
             if idx == -1:
                 return None
@@ -53,59 +52,28 @@ class JPEGAnalyzer:
         }
         result = {}
         
-        # On lit tous les octets du fichier
-
-
         i = 0
         while i < len(data) - 1:
-            
-            # Étape 1 : est-ce qu'on est sur un marqueur ?
-            # Tous les marqueurs JPEG commencent par l'octet 0xFF
+            # les marqueurs JPEG commencent par l'octet 0xFF
             if data[i] != 0xFF:
                 i += 1
                 continue
 
-            # Étape 2 : lire les 2 octets du marqueur
-            # ">H" = big-endian, unsigned short (2 octets)
             marker = struct.unpack(">H", data[i:i+2])[0]
-            # ex: data[i:i+2] = b'\xFF\xC0' → marker = 0xFFC0
 
-            # Étape 3 : est-ce un marqueur SOF ?
             if marker in SOF_MARKERS:
                 if marker == 0xFFE1: # APP1
                     result["ExifByteOrder"] = get_exif_byte_order(data)
                 else: # SOF
                     result["EncodingProcess"] = SOF_MARKERS[marker]
-                    # SOF_MARKERS[0xFFC0] = "Baseline DCT, Huffman coding"
-
-                    # Structure du segment SOF après le marker (2 octets) :
-                    # [i]   [i+1]  → marker        (FF C0) déjà lu
-                    # [i+2] [i+3]  → longueur      (00 11) = 17 octets
-                    # [i+4]        → bits/sample   (08)    = 8
-                    # [i+5] [i+6]  → hauteur       (07 D0) = 2000
-                    # [i+7] [i+8]  → largeur       (0B B8) = 3000
-                    # [i+9]        → nb composants (03)    = 3
                     result["BitsPerSample"]   = data[i+4]
-                    # data[i+4] est un seul octet, pas besoin de struct
-
                     result["ImageHeight"]     = struct.unpack(">H", data[i+5:i+7])[0]
                     result["ImageWidth"]      = struct.unpack(">H", data[i+7:i+9])[0]
                     result["ColorComponents"] = data[i+9]
 
-                    # Étape 4 : lire le sous-échantillonnage
-                    # Après [i+9] (nb composants), chaque composant = 3 octets :
-                    # [i+10] → id composant  (01 = Y, 02 = Cb, 03 = Cr)
-                    # [i+11] → sampling byte (22 = 0010 0010)
-                    # [i+12] → table quant.  (on s'en fiche)
-
-                    # Le byte sampling 0x22 = 0010 0010 en binaire
-                    # 4 bits de gauche = échantillonnage horizontal = 2
-                    # 4 bits de droite = échantillonnage vertical   = 2
-                    # → sous-échantillonnage Y = 2x2
-
                     y_sampling = data[i+11]
-                    y_h = (y_sampling >> 4) & 0xF   # décale 4 bits à droite → garde les 4 de gauche
-                    y_v = y_sampling & 0xF           # masque → garde les 4 bits de droite
+                    y_h = (y_sampling >> 4) & 0xF   
+                    y_v = y_sampling & 0xF
 
                     SUBSAMPLING_MAP = {
                         (2, 2): "YCbCr4:2:0 (2 2)",
@@ -114,21 +82,17 @@ class JPEGAnalyzer:
                         (4, 1): "YCbCr4:1:1 (4 1)",
                     }
                     result["YCbCrSubSampling"] = SUBSAMPLING_MAP.get((y_h, y_v), f"{y_h}x{y_v}")
-
-                    break  # on a trouvé le SOF, inutile de continuer
+                    break
                 
-            # Étape 5 : si ce n'est pas un SOF, sauter ce segment
+            # sauter le segment
             if marker in (0xFFD8, 0xFFD9):
-                # SOI et EOI n'ont pas de longueur, juste 2 octets
+                # SOI et EOI font juste 2 octets
                 i += 2
             else:
-                # Les autres segments ont une longueur encodée en [i+2:i+4]
-                # Cette longueur INCLUT ses propres 2 octets mais PAS les 2 du marker
+                # la longueur est definie de [i+2:i+4], et inclut les 2 octets de longueur mais pas les 2 du marker
                 seg_len = struct.unpack(">H", data[i+2:i+4])[0]
                 i += 2 + seg_len
-                # ex: longueur = 16 → on saute 2 (marker) + 16 (segment) = 18 octets
-            
-
+        
         return result
 
 

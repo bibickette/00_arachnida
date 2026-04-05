@@ -137,11 +137,14 @@ class GIFAnalyzer:
                 case _:  # Invalide
                     i += 1
 
+        data_info.update({
+            f"{Color.ORANGE}===== Frames Info ": "",
+            f"{Color.ORANGE}Frame Count": frames})
+        
         return frames
     
     @classmethod
     def analyze_image(cls, path: str) -> None:
-        # Implement GIF analysis logic here
         try:
             with Image.open(path) as image:
                 BasicMetadata.print_all_basic_metadata(path, image)
@@ -153,10 +156,6 @@ class GIFAnalyzer:
             data_info  = {}
             frames = cls.parse_gif(data, data_info)
             
-            data_info.update({
-                f"{Color.ORANGE}===== Frames Info ": "",
-                f"{Color.ORANGE}Frame Count": frames})
-            
             if duration is not None:
                 data_info.update({f"{Color.ORANGE}One frame duration (ms)": duration,
                                   f"{Color.ORANGE}Total time (s)": f"{(duration * frames / 1000):.2f}"})
@@ -164,7 +163,5 @@ class GIFAnalyzer:
             for key, value in data_info.items():
                 BasicMetadata.print_tag_value(f"{key:25}", value)
                 
-
-
         except Exception as e:
             print(f"{Color.RED}Error loading GIF metadata: {e}{Color.RESET}")

@@ -1,6 +1,4 @@
-# import struct
 from PIL import Image
-
 
 from src.BasicMetadata import BasicMetadata
 from src.Color import Color
@@ -32,7 +30,6 @@ class PNGAnalyzer:
             return decoder.get(str(value), value)
         data_info = {}
         data_info["PNG Signature"] = data[:8].hex(' ').upper()
-        # Sauter la signature (8 octets)
         i = 8
         while i < len(data):
             length = int.from_bytes(data[i:i+4], 'big')
@@ -41,7 +38,7 @@ class PNGAnalyzer:
             chunk_data = data[i+8:i+8+length]
             # CRC = data[i+8+length:i+12+length]
             
-            if chunk_type == 'IHDR':   # dimensions, bit depth...
+            if chunk_type == 'IHDR':
                 data_info['width']  = int.from_bytes(chunk_data[0:4], 'big')
                 data_info['height'] = int.from_bytes(chunk_data[4:8], 'big')
                 data_info['bit_depth'] = chunk_data[8]
@@ -49,7 +46,7 @@ class PNGAnalyzer:
                 data_info['compression_method'] = decode_png_value('compression_method', chunk_data[10])
                 data_info['filter_method'] = decode_png_value('filter_method', chunk_data[11])
                 data_info['interlace_method'] = decode_png_value('interlace_method', chunk_data[12])
-            elif chunk_type == 'tEXt': # métadonnées texte
+            elif chunk_type == 'tEXt':
                 key, val = chunk_data.split(b'\x00', 1)
                 data_info[f"Text - {BasicMetadata.decode_value(key)}"] = BasicMetadata.decode_value(val)
             else:
@@ -77,30 +74,3 @@ class PNGAnalyzer:
         except Exception as e:
             print(f"{Color.RED}Error loading PNG metadata: {e}{Color.RESET}")
             
-# The IHDR chunk must appear FIRST. It contains:
-
-#    Width:              4 bytes
-#    Height:             4 bytes
-#    Bit depth:          1 byte
-#    Color type:         1 byte
-#    Compression method: 1 byte
-#    Filter method:      1 byte
-#    Interlace method:   1 byte
-# The iTXt, tEXt, and zTXt chunks are used for conveying textual information associated with the image. This specification refers to them generically as "text chunks".
-
-# Each of the text chunks contains as its first field a keyword that indicates the type of information represented by the text string. The following keywords are predefined and should be used where appropriate:
-
-#    Title            Short (one line) title or caption for image
-#    Author           Name of image's creator
-#    Description      Description of image (possibly long)
-#    Copyright        Copyright notice
-#    Creation Time    Time of original image creation
-#    Software         Software used to create the image
-#    Disclaimer       Legal disclaimer
-#    Warning          Warning of nature of content
-#    Source           Device used to create the image
-#    Comment          Miscellaneous comment; conversion from
-#                     GIF comment
-
-# 3.1. PNG file signature
-# The first eight bytes of a PNG file always contain the following (decimal) values:

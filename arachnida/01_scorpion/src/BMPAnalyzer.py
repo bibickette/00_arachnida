@@ -66,7 +66,6 @@ class BMPAnalyzer:
             raise ValueError("Not a valid BMP file")
         
         data_info = {}
-        # struct.unpack_from('<I', data, 2)[0] veut dire : “lis 4 octets à partir de l’offset 2 dans data, interprète-les comme un unsigned int 32-bit en little‑endian, et retourne la valeur”.
         file_size, reserved, pixel_data_offset, info_header_size = struct.unpack_from('<IIII', data, 2)
         
         data_info["BMP Signature"] = data[:2].decode('ascii')
