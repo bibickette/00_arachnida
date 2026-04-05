@@ -131,28 +131,13 @@ class BMPAnalyzer:
             data_info["Gamma Blue"] = f"{gamma_blue}"
             
         if info_header_size >= 124:
-            intent = struct.unpack_from('<I', data, 122)[0]
-            profile_data = struct.unpack_from('<I', data, 126)[0]
-            profile_size = struct.unpack_from('<I', data, 130)[0]
-            reserved_v5 = struct.unpack_from('<I', data, 134)[0]
+            intent, profile_data, profile_size, reserved_v5 = struct.unpack_from('<IIII', data, 122)
             data_info["Intent"] = f"{get_intent(intent)}"
             data_info["Profile Data"] = f"{profile_data}"
             data_info["Profile Size"] = f"{profile_size} bytes"
             data_info["Reserved (V5)"] = f"{reserved_v5}"
         
-        for key, value in data_info.items():
-            BasicMetadata.print_tag_value(f"{Color.BLUE}{key:20}", value)
-            
-        # if bits_per_pixel <= 8:
-        #     num_colors_in_palette = colors_used if colors_used > 0 else (1 << bits_per_pixel)
-        #     data_info["Color Palette"] = f"{num_colors_in_palette}"
-        #     # i = 54 #sauter les 54 octets de l'entête d'information (header 14 + 40 info header)
-        #     # for idx in range(num_colors_in_palette):
-        #     #     b, g, r, _ = struct.unpack_from('<BBBB', data, i + idx*4)
-        #     #     print(f"Palette Color {idx}: R={r} G={g} B={b}")
-        #     # i += num_colors_in_palette * 4
-        # else:
-        #     data_info["Color Palette"] = "No color palette for this BMP (bits per pixel > 8)"
+        return data_info
                 
 
 
@@ -162,10 +147,15 @@ class BMPAnalyzer:
             with Image.open(path) as image:
                 BasicMetadata.print_all_basic_metadata(path, image)
                 
-                with open(path, "rb") as f:
-                    data = f.read()
-                    
-                cls.parse_bmp_header(data)
+            with open(path, "rb") as f:
+                data = f.read()
+                
+            data_info = cls.parse_bmp_header(data)
+            
+            print(f"{Color.BLUE}===== BMP Header Info ====={Color.RESET}")
+            
+            for key, value in data_info.items():
+                BasicMetadata.print_tag_value(f"{Color.BLUE}{key:20}", value)
 
         except Exception as e:
             print(f"{Color.RED}Error loading BMP metadata: {e}{Color.RESET}")

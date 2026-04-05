@@ -6,9 +6,8 @@ from src.BasicMetadata import BasicMetadata
 from src.JPEGAnalyzer import JPEGAnalyzer
 from src.Color import Color
 class PNGAnalyzer:
-    
-    @classmethod
-    def analyze_image(cls, path: str) -> None:
+    @staticmethod
+    def parse_png_ihdr(data: bytes) -> dict:
         def decode_png_value(key: str, value: str) -> str:
             PNG_VALUE_DECODER = {
                 "color_type": {
@@ -32,51 +31,49 @@ class PNGAnalyzer:
             
             decoder = PNG_VALUE_DECODER.get(key, {})
             return decoder.get(str(value), value)
-        
-        # analyze png image
+        data_info = {}
+        data_info["PNG Signature"] = data[:8].hex(' ').upper()
+        # Sauter la signature (8 octets)
+        i = 8
+        while i < len(data):
+            length = int.from_bytes(data[i:i+4], 'big')
+            
+            chunk_type = data[i+4:i+8].decode('ascii')
+            chunk_data = data[i+8:i+8+length]
+            # CRC = data[i+8+length:i+12+length]
+            
+            if chunk_type == 'IHDR':   # dimensions, bit depth...
+                data_info['width']  = int.from_bytes(chunk_data[0:4], 'big')
+                data_info['height'] = int.from_bytes(chunk_data[4:8], 'big')
+                data_info['bit_depth'] = chunk_data[8]
+                data_info['color_type'] = decode_png_value('color_type', chunk_data[9])
+                data_info['compression_method'] = decode_png_value('compression_method', chunk_data[10])
+                data_info['filter_method'] = decode_png_value('filter_method', chunk_data[11])
+                data_info['interlace_method'] = decode_png_value('interlace_method', chunk_data[12])
+            elif chunk_type == 'tEXt': # métadonnées texte
+                key, val = chunk_data.split(b'\x00', 1)
+                data_info[f"Text - {BasicMetadata.decode_value(key)}"] = BasicMetadata.decode_value(val)
+            else:
+                data_info[f"Chunk - {chunk_type}"] = f"{length} bytes"
+            
+            i += 12 + length  # 4 length + 4 type + data + 4 CRC
+        return data_info
+    
+    @classmethod
+    def analyze_image(cls, path: str) -> None:
         try:
-            
-            
             with Image.open(path) as image:
                 BasicMetadata.print_all_basic_metadata(path, image)
                 
-                def parse_png_ihdr(data: bytes) -> dict:
-                    print(f"{Color.BLUE}{'PNG Signature':20}:{Color.RESET} {data[:8].hex(' ').upper()}")
-                    # Sauter la signature (8 octets)
-                    i = 8
-                    chunks = {}
-                    while i < len(data):
-                        length = int.from_bytes(data[i:i+4], 'big')
-                        
-                        chunk_type = data[i+4:i+8].decode('ascii')
-                        chunk_data = data[i+8:i+8+length]
-                        # CRC = data[i+8+length:i+12+length]
-                        
-                        if chunk_type == 'IHDR':   # dimensions, bit depth...
-                            chunks['width']  = int.from_bytes(chunk_data[0:4], 'big')
-                            chunks['height'] = int.from_bytes(chunk_data[4:8], 'big')
-                            chunks['bit_depth'] = chunk_data[8]
-                            chunks['color_type'] = decode_png_value('color_type', chunk_data[9])
-                            chunks['compression_method'] = decode_png_value('compression_method', chunk_data[10])
-                            chunks['filter_method'] = decode_png_value('filter_method', chunk_data[11])
-                            chunks['interlace_method'] = decode_png_value('interlace_method', chunk_data[12])
-
-                        elif chunk_type == 'tEXt': # métadonnées texte
-                            key, val = chunk_data.split(b'\x00', 1)
-                            chunks[f"Text - {BasicMetadata.decode_value(key)}"] = BasicMetadata.decode_value(val)
-                        else:
-                            chunks[f"Chunk - {chunk_type}"] = f"{length} bytes"
-
-                        
-                        i += 12 + length  # 4 length + 4 type + data + 4 CRC
-                    return chunks
+            with open(path, 'rb') as f:
+                data = f.read()
                 
-                with open(path, 'rb') as f:
-                    data = f.read()
-                print(f"\n{Color.BLUE}===== PNG Metadata from IHDR Chunk ====={Color.RESET}")
-                png_metadata = parse_png_ihdr(data)
-                for key, value in png_metadata.items():
-                    BasicMetadata.print_tag_value(f"{Color.BLUE}{key:20}", decode_png_value(key, value))
+            data_info = cls.parse_png_ihdr(data)
+            
+            print(f"\n{Color.BLUE}===== PNG Metadata from IHDR Chunk ====={Color.RESET}")
+            
+            for key, value in data_info.items():
+                BasicMetadata.print_tag_value(f"{Color.BLUE}{key:20}", value)
                         
         except Exception as e:
             print(f"{Color.RED}Error loading PNG metadata: {e}{Color.RESET}")

@@ -6,7 +6,7 @@ from src.Color import Color
 
 class JPEGAnalyzer:
     @classmethod
-    def parse_jpeg_sof(cls, path: str) -> dict:
+    def parse_jpeg_sof(cls, data: bytes) -> dict:
         def get_exif_byte_order(data: bytes) -> str:
             # chercher "Exif\x00\x00" puis lire II ou MM juste après
             idx = data.find(b"Exif\x00\x00")
@@ -54,8 +54,7 @@ class JPEGAnalyzer:
         result = {}
         
         # On lit tous les octets du fichier
-        with open(path, "rb") as f:
-            data = f.read()
+
 
         i = 0
         while i < len(data) - 1:
@@ -131,16 +130,6 @@ class JPEGAnalyzer:
             
 
         return result
-    
-    
-    @classmethod
-    def print_sof_data(cls, sof_data: dict) -> None:
-        if sof_data:
-            print(f"{Color.GREEN}===== SOF Data ====={Color.RESET}")
-            for key, value in sof_data.items():
-                BasicMetadata.print_tag_value(f"{Color.GREEN}{key:20}", value)
-        else:
-            print(f"{Color.RED}===== No SOF data found or unable to parse ====={Color.RESET}")
 
 
     @classmethod
@@ -149,8 +138,15 @@ class JPEGAnalyzer:
             with Image.open(path) as image:
                 BasicMetadata.print_all_basic_metadata(path, image)
                 
-                sof = cls.parse_jpeg_sof(path)
-                cls.print_sof_data(sof)
+            with open(path, "rb") as f:
+                data = f.read()
+                
+            data_info = cls.parse_jpeg_sof(data)
+            
+            print(f"{Color.GREEN}===== SOF Data ====={Color.RESET}")
+            
+            for key, value in data_info.items():
+                BasicMetadata.print_tag_value(f"{Color.GREEN}{key:20}", value)
 
         except Exception as e:
             print(f"{Color.RED}Error loading JPEG metadata: {e}{Color.RESET}")
