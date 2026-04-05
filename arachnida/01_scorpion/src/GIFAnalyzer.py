@@ -3,7 +3,6 @@ import struct
 
 
 from src.BasicMetadata import BasicMetadata
-from src.JPEGAnalyzer import JPEGAnalyzer
 from src.Color import Color
 
 
@@ -157,6 +156,7 @@ class GIFAnalyzer:
             data_info.update({
                 f"{Color.ORANGE}===== Frames Info ": "",
                 f"{Color.ORANGE}Frame Count": frames})
+            
             if duration is not None:
                 data_info.update({f"{Color.ORANGE}One frame duration (ms)": duration,
                                   f"{Color.ORANGE}Total time (s)": f"{(duration * frames / 1000):.2f}"})

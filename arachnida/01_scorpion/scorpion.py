@@ -24,9 +24,6 @@ def main() -> int:
         print(f"{Color.RED}===========================================================================")
         print(f"The {Color.RESET}{filename}{Color.RED} is not a supported image format. Detected MIME type: {Color.RESET}{mime}{Color.RED}")
         print(f"==========================================================================={Color.RESET}")
-        
-    def error_not_available(filename:str):
-        print(f"{Color.RED}not available yet for {Color.RESET}{filename}{Color.RED} {Color.RESET}")
 
     files = init_arg_parse()
     # print(f"files = {files}")

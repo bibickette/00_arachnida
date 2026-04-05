@@ -3,7 +3,6 @@ from PIL import Image
 
 
 from src.BasicMetadata import BasicMetadata
-from src.JPEGAnalyzer import JPEGAnalyzer
 from src.Color import Color
 class PNGAnalyzer:
     @staticmethod
