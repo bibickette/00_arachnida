@@ -1,0 +1,5 @@
+bmp top-bottom ou bottom-top ?
+
+- APP0 (JFIF) summary if present? jpeg
+
+bien recheck toute la doc si elle correspond a mes analyzer

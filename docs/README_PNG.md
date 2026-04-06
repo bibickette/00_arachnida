@@ -133,18 +133,3 @@ Scorpion can list chunk presence and/or decode some:
 - `tIME`: last-modification time
 - `eXIf`: EXIF block (optional)
 
----
-
-## 7) Recommended analyzer output
-
-Minimum:
-- signature ok
-- IHDR fields (width/height/bit depth/color type/compression/filter/interlace)
-- list all chunks with sizes
-- decode `tEXt`/`iTXt` keys if present
-- show if multiple IDAT chunks exist and total compressed size
-
-Optional “nice to have”:
-- CRC validation per chunk
-- `pHYs` → show pixels per meter and derived DPI
-- `sRGB` rendering intent value (0..3)

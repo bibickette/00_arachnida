@@ -143,15 +143,3 @@ Analyzer prints:
 ## 6) Trailer (0x3B)
 
 One byte `0x3B` ends the file.
-
----
-
-## 7) Recommended analyzer output
-
-- GIF version
-- canvas width/height
-- global color table present + size
-- number of frames
-- per-frame delays (if GCE exists)
-- loop count (if NETSCAPE2.0)
-- comments (if any)

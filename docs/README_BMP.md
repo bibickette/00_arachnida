@@ -197,21 +197,4 @@ V5 includes V4 (108) plus ICC/profile-related fields:
 - 2: Saturation
 - 3: Absolute Colorimetric
 
----
 
-## 10) What Scorpion should print (recommended)
-
-- Signature, file size, pixel offset
-- DIB header size + DIB type (CORE/INFO/V4/V5)
-- width, height (and top-down vs bottom-up)
-- planes, bpp, compression
-- x/y pixels per meter (and optional DPI conversion)
-- palette: present? number of entries? (for <=8 bpp)
-- masks: only if BI_BITFIELDS or header is V4/V5 and bpp is 16/32
-- profile info (V5): intent + profile size presence
-
----
-
-## 11) Quick DPI conversion
-If `x_ppm` is pixels-per-meter:
-- `dpi ≈ x_ppm * 0.0254`

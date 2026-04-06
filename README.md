@@ -46,18 +46,10 @@ This repository follows a “small tools” approach: each exercise is a standal
 │   ├── 00_spider/
 │   │   ├── spider.py
 │   │   └── src/
-│   │       ├── ArgumentParser.py
-│   │       └── scrape.py
 │   │
 │   └── 01_scorpion/
 │       ├── scorpion.py
 │       ├── src/
-│       │   ├── BasicMetadata.py
-│       │   ├── BMPAnalyzer.py
-│       │   ├── GIFAnalyzer.py
-│       │   ├── JPEGAnalyzer.py
-│       │   ├── PNGAnalyzer.py
-│       │   └── Color.py
 │       └── img_extension/
 │           ├── bmp/
 │           ├── gif/

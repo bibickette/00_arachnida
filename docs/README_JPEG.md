@@ -155,13 +155,3 @@ APP2 may contain ICC profile data, sometimes split across multiple APP2 segments
 If you don’t fully rebuild it, it’s still useful to show:
 - ICC present (yes/no)
 - total ICC bytes (sum)
-
----
-
-## 9) Recommended analyzer output
-
-- file signature SOI/EOI presence
-- SOF: width, height, bits per sample, components, subsampling, baseline/progressive
-- APP0 (JFIF) summary if present
-- APP1 EXIF summary + GPS if present
-- APP2 ICC presence if present
