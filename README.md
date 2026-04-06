@@ -133,9 +133,13 @@ Tip for testing scraping:
 
 
 ### Arguments
+Scorpion takes **one or more image files** as positional arguments.  
+Some sample assets are already available in `arachnida/01_scorpion/img_extension/`, so you can test the program immediately without downloading anything.
+
 ```bash
 ./scorpion.py <file1> [file2 ...]
 ```
+
 ### Tools used
 - **Pillow (PIL)**: open images and get high-level info (format, size, mode, `img.info`)
 - Custom analyzers:
@@ -171,3 +175,7 @@ The script prints :
 4. Go to the folder first : `cd arachnida/01_scorpion`
 5. Make the script executable : `chmod +x scorpion.py`
 6. Run it as a program : `./scorpion.py file1 file2 ...` *(see [scorpion arguments](#arguments-1) for more details)*
+
+
+* * *
+*Project validation date : TBD*
