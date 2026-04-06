@@ -8,12 +8,12 @@ This README is organized as follows:
 - [00 - Spider](#00---spider)
   - [Arguments](#arguments)
   - [Tools used](#tools-used)
-  - [Scripts behavior](#scripts-behavior)
+  - [Script behavior](#script-behavior)
   - [Notes / limitations](#notes--limitations)
 - [01 - Scorpion](#01---scorpion)
   - [Arguments](#arguments-1)
   - [Tools used](#tools-used-1)
-  - [Scripts behavior](#scripts-behavior-1)
+  - [Script behavior](#script-behavior-1)
   - [Notes](#notes)
 - [Using `arachnida`](#using-arachnida)
   - [How to use `spider`](#how-to-use-spider)
@@ -106,7 +106,7 @@ Before running the executables, create and activate a virtual environment :
 - **BeautifulSoup (bs4)** : HTML parsing and extraction of `<img>` and links
 - **urllib** : URL handling and path building (normalization, joining, safe filesystem paths)
 
-### Scripts behavior
+### Script behavior
 - Downloads images with the following extensions:
   - `jpg`, `jpeg`, `png`, `gif`, `bmp`
 - Asks the user whether the crawler should **stay on the same hostname**
@@ -144,7 +144,7 @@ Some sample assets are already available in `arachnida/01_scorpion/img_extension
   - `GIFAnalyzer.py` : GIF header, color tables, extensions (comments, looping)
  
 
-### Scripts behavior
+### Script behavior
 The script prints :
 - **Basic file metadata** (name, size, timestamps, permissions)
 - **Image-level metadata** (format, dimensions, mode)
