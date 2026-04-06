@@ -1,30 +1,173 @@
-spider :
-ask if want to stay in the same hostname
-dont sleep so can get 429
-max of 10 worker with threadpoolexecutor
-handle ctrl c behavior
-without -r, stay at the 0 deep
+# Project presentation - `arachnida`
+**Introduction**
+
+This README is organized as follows:
+- [Description](#description)
+- [Repository layout](#repository-layout)
+- [Setup Python environment](#setup-python-environment)
+- [00 - Spider](#00---spider)
+  - [Arguments](#arguments)
+  - [Tools used](#tools-used)
+  - [Scripts behavior](#scripts-behavior)
+  - [Notes / limitations](#notes--limitations)
+- [01 - Scorpion](#01---scorpion)
+  - [Supported formats](#supported-formats)
+  - [Arguments](#arguments-1)
+  - [Tools used](#tools-used-1)
+  - [Scripts behavior](#scripts-behavior-1)
+- [Using `arachnida`](#using-arachnida)
+  - [How to use `spider`](#how-to-use-spider)
+  - [How to use `scorpion`](#how-to-use-scorpion)
+ 
+* * *
+
+## Description
+
+This project contains two exercises:
+
+1. **Spider - Web scraping**  
+   Crawl an HTML page (and optionally its linked pages depending on options), then **download images**.
+
+2. **Scorpion - Image metadata analysis**  
+   Analyze local image files (**BMP / PNG / JPEG / GIF**) and extract meaningful information such as:
+   - **Basic file metadata** (path, size, timestamps, permissions)
+   - **Image-level metadata** (format, dimensions, mode)
+   - **Format-specific metadata** (headers / chunks / segments)
+
+This repository follows a “small tools” approach: each exercise is a standalone CLI program with its own source folder and utilities.
 
 
-tester le scrap
-https://webscraper.io/test-sites
+* * *
+
+## Repository layout
+
+```
+│
+├── arachnida/
+│   ├── 00_spider/
+│   │	├── spider.py    
+│   │	└── README.md
+│   │
+│   └── 01_scorpion/
+|   	├── docs/
+|   	|	├──
+|   	|	├──
+|   	|	├──
+|   	|	└──
+|   	|
+|   	├── img_extension/
+|   	├── scorpion.py            
+│   	└── README.md         
+│
+├── setup.sh                
+├── requirements.txt
+├── Makefile
+└── README.md
+```
+
+* * *
+
+## Setup Python environment
+
+*This project use Python **3.12+**.*
+
+Before running the executables, environment need to be setted up :
+1. Create the environment with : `python3 -m venv .venv`
+2. Lauch the Python environment with : `source .venv/bin/activate`
+3. Install dependencies with :  `pip install -r requirements.txt`
+4. *List all the packages (optional) : `pip list`*
+5. When finished, quit the environment with : `deactivate`
+
+* * *
+
+## 00 - Spider
+### Arguments
+- `-r`  
+  Recursively downloads images from the URL and its linked pages.
+
+- `-r -l <N>`  
+  Sets the maximum recursion depth.  
+  If not specified, the default is **5**.
+
+- `-p <PATH>`  
+  Sets the output directory where downloaded files will be saved.  
+  If not specified, `./data/` is used.
+  
+```bash
+./spider.py [flags...] <url>
+```
+
+### Tools used
+
+- **requests**: HTTP requests (GET) to fetch HTML pages (and potentially files)
+- **BeautifulSoup (bs4)**: HTML parsing and extraction of `<img>` and links
+- **urllib**: URL handling and path building (normalization, joining, safe filesystem paths)
+
+### Scripts behavior
+- Downloads images with the following extensions:
+  - `jpg`, `jpeg`, `png`, `gif`, `bmp`
+- Asks the user whether the crawler should **stay on the same hostname**
+  (to avoid leaving the target domain).
+- Uses up to **10 workers** with `ThreadPoolExecutor`.
+- Handles `Ctrl+C` cleanly.
+- Without `-r`, Spider stays at **depth 0** (only the given page).
+
+Tip for testing scraping:
+- `https://webscraper.io/test-sites`
+
+### Notes / limitations
+
+- No built-in delay between requests: you may hit **HTTP 429 (Too Many Requests)** on some sites.
+- Only downloads supported image extensions.
+- Output structure depends on implementation details (paths built using `urllib`).
 
 
-resources
-https://www.w3schools.com/python/module_requests.asp
-https://laconsole.dev/formations/python/scraping-beautiful-soup
-https://www.geeksforgeeks.org/python/response-raise_for_status-python-requests/
-https://webscraping.ai/faq/beautiful-soup/how-do-i-use-beautiful-soup-to-extract-all-image-sources-from-a-webpage
+* * *
+
+## 01 - Scorpion
+### Supported formats
+- BMP (`.bmp`)
+- PNG (`.png`)
+- JPEG (`.jpg`, `.jpeg`)
+- GIF (`.gif`)
 
 
+### Arguments
+```bash
+./scorpion.py <file1> [file2 ...]
+```
+### Tools used
+- **Pillow (PIL)**: open images and get high-level info (format, size, mode, `img.info`)
+- Custom analyzers:
+  - `BMPAnalyzer.py` : BMP headers, DIB types, palette, masks
+  - `PNGAnalyzer.py` : PNG signature, IHDR, chunk listing (tEXt/iTXt, etc.)
+  - `JPEGAnalyzer.py` : markers, SOF, APP segments, EXIF/GPS (when present)
+  - `GIFAnalyzer.py` : GIF header, color tables, extensions (comments, looping)
+ 
 
-JPEG
-https://www.disktuna.com/list-of-jpeg-markers/
-https://metacpan.org/dist/Image-MetaData-JPEG/view/lib/Image/MetaData/JPEG/Structures.pod
-https://www.ccoderun.ca/programming/2017-01-31_jpeg/
+### Scripts behavior
+The script prints :
+- **Basic file metadata** (name, size, timestamps, permissions)
+- **Image-level metadata** (format, dimensions, mode)
+- **Format-specific metadata**, for example:
+  - PNG: IHDR fields + chunk list (sRGB, pHYs, iTXt, IDAT…)
+  - JPEG: SOF (baseline/progressive), EXIF byte order, GPS IFD if present
+  - GIF: version, canvas size, frame count/delays, comments if any
+  - BMP: DIB type/size, bpp, compression, palette size, pixel offset, masks
+ 
+* * *
+# Using `arachnida`
 
-PNG
-https://www.libpng.org/pub/png/spec/1.2/PNG-Contents.html
+1. Clone `00_arachnida` in a folder first  : `git clone git@github.com:bibickette/00_arachnida.git`
+2. Go to the `00_arachnida` folder and install the Python environment *(see [setup environement](#setup-python-environment) for more details)*
+3. Activate the environment with : `source .venv/bin/activate`
 
-GIF
-https://www.w3.org/Graphics/GIF/spec-gif87.txt
+## How to use `spider`
+4. Go to the folder first : `cd arachnida/00_spider`
+5. Make the script executable : `chmod +x spider.py`
+6. Run it as a program : `./spider.py [flags...] <url>` *(see [spider arguments](#arguments) for more details)*
+
+## How to use `scorpion`
+4. Go to the folder first : `cd arachnida/01_scorpion`
+5. Make the script executable : `chmod +x scorpion.py`
+6. Run it as a program : `./scorpion.py file1 file2 ...` *(see [scorpion arguments](#arguments-1) for more details)*
