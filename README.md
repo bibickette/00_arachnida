@@ -85,6 +85,7 @@ Before running the executables, create and activate a virtual environment :
 ### Arguments
 - `-r`  
   Recursively downloads images from the URL and its linked pages.
+  If not specified, stays at **depth 0** (only the given page).
 
 - `-r -l <N>`  
   Sets the maximum recursion depth.  
@@ -111,7 +112,6 @@ Before running the executables, create and activate a virtual environment :
   (to avoid leaving the target domain).
 - Uses up to **10 workers** with `ThreadPoolExecutor`.
 - Handles `Ctrl+C` cleanly.
-- Without `-r`, Spider stays at **depth 0** (only the given page).
 
 Tip for testing scraping:
 - `https://webscraper.io/test-sites`
