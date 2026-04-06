@@ -41,25 +41,37 @@ This repository follows a “small tools” approach: each exercise is a standal
 ## Repository layout
 
 ```
-│
+.
 ├── arachnida/
 │   ├── 00_spider/
-│   │	├── spider.py    
-│   │	└── README.md
+│   │   ├── spider.py
+│   │   └── src/
+│   │       ├── ArgumentParser.py
+│   │       └── scrape.py
 │   │
 │   └── 01_scorpion/
-|   	├── docs/
-|   	|	├──
-|   	|	├──
-|   	|	├──
-|   	|	└──
-|   	|
-|   	├── img_extension/
-|   	├── scorpion.py            
-│   	└── README.md         
+│       ├── scorpion.py
+│       ├── src/
+│       │   ├── BasicMetadata.py
+│       │   ├── BMPAnalyzer.py
+│       │   ├── GIFAnalyzer.py
+│       │   ├── JPEGAnalyzer.py
+│       │   ├── PNGAnalyzer.py
+│       │   └── Color.py
+│       └── img_extension/
+│           ├── bmp/
+│           ├── gif/
+│           ├── jpeg/
+│           └── png/
 │
-├── requirements.txt
-└── README.md
+├── docs/
+│   ├── README_BMP.md
+│   ├── README_PNG.md
+│   ├── README_JPEG.md
+│   └── README_GIF.md
+│
+├── README.md
+└── requirements.txt
 ```
 
 * * *
@@ -68,7 +80,7 @@ This repository follows a “small tools” approach: each exercise is a standal
 
 *This project use Python **3.12+**.*
 
-Before running the executables, environment need to be setted up :
+Before running the executables, create and activate a virtual environment :
 1. Create the environment with : `python3 -m venv .venv`
 2. Lauch the Python environment with : `source .venv/bin/activate`
 3. Install dependencies with :  `pip install -r requirements.txt`
@@ -96,9 +108,9 @@ Before running the executables, environment need to be setted up :
 
 ### Tools used
 
-- **requests**: HTTP requests (GET) to fetch HTML pages (and potentially files)
-- **BeautifulSoup (bs4)**: HTML parsing and extraction of `<img>` and links
-- **urllib**: URL handling and path building (normalization, joining, safe filesystem paths)
+- **requests** : HTTP requests (GET) to fetch HTML pages (and potentially files)
+- **BeautifulSoup (bs4)** : HTML parsing and extraction of `<img>` and links
+- **urllib** : URL handling and path building (normalization, joining, safe filesystem paths)
 
 ### Scripts behavior
 - Downloads images with the following extensions:
@@ -123,10 +135,10 @@ Tip for testing scraping:
 
 ## 01 - Scorpion
 ### Supported formats
-- BMP (`.bmp`) — see [BMP documentation](docs/README_BMP.md)
-- PNG (`.png`) — see [PNG documentation](docs/README_PNG.md)
-- JPEG (`.jpg`, `.jpeg`) — see [JPEG documentation](docs/README_JPEG.md)
-- GIF (`.gif`) — see [GIF documentation](docs/README_GIF.md)
+1. BMP (`.bmp`)  *(see [BMP documentation](./docs/README_BMP.md))*
+2. PNG (`.png`)  *(see [PNG documentation](./docs/README_PNG.md))*
+3. JPEG (`.jpg`, `.jpeg`)  *(see [JPEG documentation](./docs/README_JPEG.md))*
+4. GIF (`.gif`)  *(see [GIF documentation](./docs/README_GIF.md))*
 
 
 ### Arguments
@@ -151,10 +163,10 @@ The script prints :
 - **Basic file metadata** (name, size, timestamps, permissions)
 - **Image-level metadata** (format, dimensions, mode)
 - **Format-specific metadata**, for example:
-  - PNG: IHDR fields + chunk list (sRGB, pHYs, iTXt, IDAT…)
-  - JPEG: SOF (baseline/progressive), EXIF byte order, GPS IFD if present
-  - GIF: version, canvas size, frame count/delays, comments if any
-  - BMP: DIB type/size, bpp, compression, palette size, pixel offset, masks
+  - PNG : IHDR fields + chunk list (sRGB, pHYs, iTXt, IDAT…)
+  - JPEG : SOF (baseline/progressive), EXIF byte order, GPS IFD if present
+  - GIF : version, canvas size, frame count/delays, comments if any
+  - BMP : DIB type/size, bpp, compression, palette size, pixel offset, masks
  
 * * *
 # Using `arachnida`
