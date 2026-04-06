@@ -14,6 +14,7 @@ This README is organized as follows:
   - [Arguments](#arguments-1)
   - [Tools used](#tools-used-1)
   - [Scripts behavior](#scripts-behavior-1)
+  - [Notes](#notes)
 - [Using `arachnida`](#using-arachnida)
   - [How to use `spider`](#how-to-use-spider)
   - [How to use `scorpion`](#how-to-use-scorpion)
@@ -126,13 +127,6 @@ Tip for testing scraping:
 * * *
 
 ## 01 - Scorpion
-### Supported formats
-1. BMP (`.bmp`)  *(see [BMP documentation](./docs/README_BMP.md))*
-2. PNG (`.png`)  *(see [PNG documentation](./docs/README_PNG.md))*
-3. JPEG (`.jpg`, `.jpeg`)  *(see [JPEG documentation](./docs/README_JPEG.md))*
-4. GIF (`.gif`)  *(see [GIF documentation](./docs/README_GIF.md))*
-
-
 ### Arguments
 Scorpion takes **one or more image files** as positional arguments.  
 Some sample assets are already available in `arachnida/01_scorpion/img_extension/`, so you can test the program immediately without downloading anything.
@@ -159,7 +153,14 @@ The script prints :
   - JPEG : SOF (baseline/progressive), EXIF byte order, GPS IFD if present
   - GIF : version, canvas size, frame count/delays, comments if any
   - BMP : DIB type/size, bpp, compression, palette size, pixel offset, masks
- 
+  
+### Notes
+More informations about each formats :
+1. BMP (`.bmp`)  *(see [BMP documentation](./docs/README_BMP.md))*
+2. PNG (`.png`)  *(see [PNG documentation](./docs/README_PNG.md))*
+3. JPEG (`.jpg`, `.jpeg`)  *(see [JPEG documentation](./docs/README_JPEG.md))*
+4. GIF (`.gif`)  *(see [GIF documentation](./docs/README_GIF.md))*
+
 * * *
 # Using `arachnida`
 
