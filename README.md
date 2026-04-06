@@ -84,7 +84,7 @@ Before running the executables, create and activate a virtual environment :
 ## 00 - Spider
 ### Arguments
 - `-r`  
-  Recursively downloads images from the URL and its linked pages.
+  Recursively downloads images from the URL and its linked pages.  
   If not specified, stays at **depth 0** (only the given page).
 
 - `-r -l <N>`  
