@@ -11,7 +11,6 @@ This README is organized as follows:
   - [Scripts behavior](#scripts-behavior)
   - [Notes / limitations](#notes--limitations)
 - [01 - Scorpion](#01---scorpion)
-  - [Supported formats](#supported-formats)
   - [Arguments](#arguments-1)
   - [Tools used](#tools-used-1)
   - [Scripts behavior](#scripts-behavior-1)
@@ -59,9 +58,7 @@ This repository follows a “small tools” approach: each exercise is a standal
 |   	├── scorpion.py            
 │   	└── README.md         
 │
-├── setup.sh                
 ├── requirements.txt
-├── Makefile
 └── README.md
 ```
 
@@ -126,10 +123,10 @@ Tip for testing scraping:
 
 ## 01 - Scorpion
 ### Supported formats
-- BMP (`.bmp`)
-- PNG (`.png`)
-- JPEG (`.jpg`, `.jpeg`)
-- GIF (`.gif`)
+- BMP (`.bmp`) — see [BMP documentation](docs/README_BMP.md)
+- PNG (`.png`) — see [PNG documentation](docs/README_PNG.md)
+- JPEG (`.jpg`, `.jpeg`) — see [JPEG documentation](docs/README_JPEG.md)
+- GIF (`.gif`) — see [GIF documentation](docs/README_GIF.md)
 
 
 ### Arguments
