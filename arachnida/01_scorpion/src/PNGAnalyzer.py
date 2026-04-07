@@ -63,7 +63,8 @@ class PNGAnalyzer:
                 
             with open(path, 'rb') as f:
                 data = f.read()
-                
+            
+            data_info = {}    
             data_info = cls.parse_png_ihdr(data)
             
             print(f"\n{Color.BLUE}===== PNG Metadata from IHDR Chunk ====={Color.RESET}")

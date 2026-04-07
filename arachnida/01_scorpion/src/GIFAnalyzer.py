@@ -55,6 +55,10 @@ class GIFAnalyzer:
                         f"{Color.BLUE}===== Chunk Comment Extension ": "",
                         f"{Color.BLUE}Comment": comment})
                 case 0xFF:  # Application Extension
+                    block_size = data[i]
+                    if block_size != 11:
+                        raise ValueError(f"Unexpected Application Extension block size: {block_size}")
+                    
                     data_info.update({
                         f"{Color.BLUE}===== Chunk Application Extension ": "",
                         f"{Color.BLUE}App Identifier": BasicMetadata.decode_value(data[i+1:i+9]),

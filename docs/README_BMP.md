@@ -2,199 +2,204 @@
 
 *This document complements the **Scorpion** documentation. For project overview and usage instructions, see the main README [here](../README.md).*
 
-This document is meant to match what a `BMPAnalyzer` typically does in Scorpion: parse headers, compute palette size, locate pixel data, and display meaningful fields (offsets, sizes, values).
-
-> Key idea: BMP is a **little-endian** container built around a 14-byte file header + a DIB header (variable size) + optional palette/bitfields + pixel array.
 
 ---
 
-## 0) Endianness & primitive types
+## 1) What is a BMP file?
 
-BMP uses **little-endian** integers.
+**BMP (Bitmap)** is a simple raster image format historically used on Windows.  
+A BMP file typically stores:
+
+- a **file header** (signature, file size, where pixels start),
+- a **DIB header** (image width/height, color depth, compression, masks, color space),
+- an optional **palette** and/or **bit masks**,
+- the **pixel array** (raw image data), usually stored as scanlines with padding.
+
+`BMPAnalyzer` focuses on **reading headers**, not decoding pixels.
+
+### General structure (high-level)
+
+```
+┌─────────────────────────────────────┐
+│ BMP File Header (14 bytes)          │ <-- always at the start of the file
+│ (Signature, File size, Offset)      │
+├─────────────────────────────────────┤
+│ DIB Header (Info Header)            │ <-- begins at file offset 14 (0x0E)
+│ (Width, Height, Colors...)          │
+├─────────────────────────────────────┤
+│ Color Table (Palette)               │
+│ (Optional, mainly for <= 8bpp)      │
+├─────────────────────────────────────┤
+│ Pixel Data (Bitmap Data)            │ <-- starts at bfOffBits (Pixel Data Offset)
+│ (The actual image pixels)           │
+└─────────────────────────────────────┘
+```
+
+---
+
+## 2) Endianness & primitive types
+
+BMP is **little-endian**.
 
 Typical `struct` formats:
-- `"<H"`: 2-byte unsigned (WORD)
-- `"<I"`: 4-byte unsigned (DWORD)
-- `"<i"`: 4-byte signed (LONG) — important for height
+1. `"<H"`: 2-byte unsigned (WORD)
+2. `"<I"`: 4-byte unsigned (DWORD)
+3. `"<i"`: 4-byte signed (LONG) : important for height (top-down vs bottom-up)
+
+### Top-down vs bottom-up (scanline order)
+
+In BMP files, the **pixel array always starts at** `bfOffBits`.  
+The sign of the height field (in DIB headers where height is **signed**, i.e. `BITMAPINFOHEADER` and later) determines the **vertical order** of scanlines in the pixel array:
+
+- **Bottom-up (`height > 0`)**  
+  The *first* scanline stored in the file corresponds to the **bottom** row of the image.  
+  To display the image correctly, the row order must be reversed when mapping file rows to image rows.
+
+- **Top-down (`height < 0`)**  
+  The *first* scanline stored in the file corresponds to the **top** row of the image.  
+  The actual height is `abs(height)`.
+
+Important:
+- This does **not** move or reorder headers. Headers are always at the beginning of the file.
+- It only affects **how to interpret the pixel array** (the image rows).
+- `BITMAPCOREHEADER` uses an **unsigned** height (`bcHeight`), so it does not support the negative-height top-down convention.
 
 ---
 
-## 1) High-level file layout
+## 3) BITMAPFILEHEADER (14 bytes)
 
-```
-0x0000  BITMAPFILEHEADER (14 bytes)
-0x000E  DIB HEADER (biSize bytes) (variable size: 12/40/108/124…)
-...     Optional: Color Table / Palette (RGBQUAD entries) (mainly for 1/4/8 bpp)
-...     Optional: Bitfields masks (if BI_BITFIELDS / BI_ALPHABITFIELDS) 
-bfOffBits  Pixel Array (scanlines with 4-byte padding)
-```
+This header identifies the BMP file and provides the pixel data offset.
 
-The **only reliable** way to find pixel data is reading `bfOffBits` (Pixel Data Offset).
+| File Offset | Size | Field | Analyzer key | Notes |
+|:---:|:---:|---|---|---|
+| `0x00` | 2 | `bfType` | `BMP Signature` | Must be `BM` |
+| `0x02` | 4 | `bfSize` | `File Size` | File size in bytes |
+| `0x06` | 4 | `bfReserved1 + bfReserved2` | `Reserved` | `BMPAnalyzer` reads both reserved WORDs as one DWORD |
+| `0x0A` | 4 | `bfOffBits` | `Pixel Data Offset` | Where the pixel array begins |
+| `0x0E` | 4 | `biSize` | `Info Header Size` | DIB header size (12/40/108/124…) |
+
+### DIB header type
+
+`BMPAnalyzer` maps `biSize` to:
+
+| Size | Header |
+|:----:|--------|
+| 12 | BITMAPCOREHEADER |
+| 40 | BITMAPINFOHEADER |
+| 108 | BITMAPV4HEADER |
+| 124 | BITMAPV5HEADER |
 
 ---
 
-## 2) BITMAPFILEHEADER (14 bytes) — file offsets
+## 4) BITMAPCOREHEADER case (biSize == 12)
 
 | File Offset | Size | Field | Meaning |
-|---:|---:|---|---|
-| 0x00 | 2 | `bfType` | Signature: `"BM"` |
-| 0x02 | 4 | `bfSize` | Total file size in bytes |
-| 0x06 | 2 | `bfReserved1` | Reserved (should be 0) |
-| 0x08 | 2 | `bfReserved2` | Reserved (should be 0) |
-| 0x0A | 4 | `bfOffBits` | Offset to pixel array |
+|:----------:|:----:|---------|---|
+| `0x0E` | 4 | `bcSize` | Size of this header (**12 bytes**) |
+| `0x12` | 2 | `bcWidth` | Bitmap width in pixels (unsigned 16-bit) |
+| `0x14` | 2 | `bcHeight` | Bitmap height in pixels (unsigned 16-bit) |
+| `0x16` | 2 | `bcPlanes` | Number of color planes (**must be 1**) |
+| `0x18` | 2 | `bcBitCount` | Bits per pixel (e.g., 1, 4, 8, 24) |
 
-Example reads:
-- signature: `data[0:2]`
-- file size: `struct.unpack_from("<I", data, 0x02)[0]`
-- pixel offset: `struct.unpack_from("<I", data, 0x0A)[0]`
+Note: With BITMAPCOREHEADER, the image is treated as **bottom-up**.
 
 ---
 
-## 3) DIB headers (start at file offset 0x0E)
+## 5) BITMAPINFOHEADER case (biSize >= 40)
 
-At file offset `0x0E`, read:
-- `biSize = DWORD` — tells DIB type and length.
+When `info_header_size >= 40`, the analyzer reads these fields:
 
-### Common DIB types
-- `biSize = 12`  → BITMAPCOREHEADER (legacy)
-- `biSize = 40`  → BITMAPINFOHEADER (most common)
-- `biSize = 108` → BITMAPV4HEADER
-- `biSize = 124` → BITMAPV5HEADER
-
----
-
-## 4) BITMAPINFOHEADER (biSize = 40) — DIB-relative offsets
-
-DIB starts at `dib_off = 0x0E` (14). The offsets below are **relative to dib_off**.
-
-| DIB Offset | File Offset | Size | Field | Notes |
-|---:|---:|---:|---|---|
-| 0 | 0x0E | 4 | `biSize` | = 40 |
-| 4 | 0x12 | 4 | `biWidth` | width in pixels |
-| 8 | 0x16 | 4 | `biHeight` | signed! negative => top-down |
-| 12 | 0x1A | 2 | `biPlanes` | must be 1 |
-| 14 | 0x1C | 2 | `biBitCount` | 1/4/8/16/24/32 |
-| 16 | 0x1E | 4 | `biCompression` | BI_RGB, BI_RLE8, BI_BITFIELDS... |
-| 20 | 0x22 | 4 | `biSizeImage` | may be 0 for BI_RGB |
-| 24 | 0x26 | 4 | `biXPelsPerMeter` | density |
-| 28 | 0x2A | 4 | `biYPelsPerMeter` | density |
-| 32 | 0x2E | 4 | `biClrUsed` | palette entries used (if palettized) |
-| 36 | 0x32 | 4 | `biClrImportant` | “important” colors |
-
-### How to interpret biHeight
-- If `biHeight > 0`: pixel array stored **bottom-up**
-- If `biHeight < 0`: pixel array stored **top-down**; actual height is `abs(biHeight)`
+| File Offset | Size | Field | Meaning |
+|:---:|:---:|---|---|
+| `0x12` | 4 | `biWidth` | Image width (pixels) |
+| `0x16` | 4 | `biHeight` | Signed height (pixels) |
+| `0x1A` | 2 | `biPlanes` | Must be 1 |
+| `0x1C` | 2 | `biBitCount` | Bits per pixel (bpp) |
+| `0x1E` | 4 | `biCompression` | Compression method |
+| `0x22` | 4 | `biSizeImage` | Image size (may be 0 for BI_RGB) |
+| `0x26` | 4 | `biXPelsPerMeter` | X pixels per meter |
+| `0x2A` | 4 | `biYPelsPerMeter` | Y pixels per meter |
+| `0x2E` | 4 | `biClrUsed` | Colors used (palette entries) |
+| `0x32` | 4 | `biClrImportant` | Important colors |
 
 ---
 
-## 5) Color table / palette (for 1/4/8 bpp)
+## 6) BITMAPV4HEADER case (biSize >= 108)
 
-### When is a palette present?
-Usually if `biBitCount <= 8`.
+When `info_header_size >= 108`, `BMPAnalyzer` reads masks and color space fields.
 
-### Number of palette entries
-- If `biClrUsed != 0` → palette_entries = `biClrUsed`
-- Else → palette_entries = `2 ** biBitCount`
+### A) RGBA masks (file offset 0x36)
 
-### Entry format
-Typically **RGBQUAD** (4 bytes):
-- byte0: Blue
-- byte1: Green
-- byte2: Red
-- byte3: Reserved (0)
+| File Offset | Size | Field |
+|:-----------:|:----:|-------|
+| `0x36` | 4 | Red Mask |
+| `0x3A` | 4 | Green Mask |
+| `0x3E` | 4 | Blue Mask |
+| `0x42` | 4 | Alpha Mask |
 
-Palette size:
-- `palette_bytes = palette_entries * 4`
+### B) Color space type (file offset 0x46)
 
-### Offset of palette
-Palette begins immediately after the DIB header:
-- `palette_off = dib_off + biSize`
+Common values `BMPAnalyzer` recognizes:
 
----
+| Value (hex) | Name | Meaning |
+|:----------:|------|---------|
+| `0x00000000` | `LCS_CALIBRATED_RGB` | Endpoints and gamma values are provided in the header. |
+| `0x73524742` | `LCS_sRGB` | The bitmap is in the sRGB color space. |
+| `0x57696E20` | `LCS_WINDOWS_COLOR_SPACE` | The bitmap is in the system default color space (sRGB). |
+| `0x4C494E4B` | `PROFILE_LINKED` | `bV5ProfileData` points to a profile filename (endpoints/gamma ignored). |
+| `0x4D424544` | `PROFILE_EMBEDDED` | `bV5ProfileData` points to an embedded profile buffer (endpoints/gamma ignored). |
 
-## 6) Pixel array offset & row padding
+### C) Endpoints (CIEXYZTRIPLE)
 
-### Pixel array offset
-Always trust:
-- `pixel_off = bfOffBits`
+`BMPAnalyzer` currently reads endpoints as **3 groups of 3 DWORDs**:
 
-Sanity check:
-- computed offset ≈ `14 + biSize + palette_bytes (+ masks if present)`
+- Red endpoint at file offset `0x4A`
+- Green endpoint at file offset `0x56`
+- Blue endpoint at file offset `0x62`
 
-### Bytes per pixel (for direct-color formats)
-- 24 bpp → 3 bytes/pixel (B, G, R)
-- 32 bpp → 4 bytes/pixel (often B, G, R, A or unused)
+And prints:
+- `Endpoint Red: X:..., Y:..., Z:...`
+- `Endpoint Green: ...`
+- `Endpoint Blue: ...`
 
-### Row padding (important)
-BMP aligns each row to a **4-byte boundary**.
+### D) Gamma values (file offset 0x6E)
 
-Let:
-- `bytes_per_pixel = biBitCount // 8` (for 16/24/32; for 1/4/8 it’s indexed bits)
-- `row_unpadded = width * bytes_per_pixel`
-- `row_size = (row_unpadded + 3) & ~3`
+`BMPAnalyzer` reads gamma values as **3 DWORDs**:
 
-Total image bytes for uncompressed direct color:
-- `row_size * height`
+- Gamma Red: `0x6E`
+- Gamma Green: `0x72`
+- Gamma Blue: `0x76`
 
 ---
 
-## 7) BI_BITFIELDS & masks (16/32 bpp)
+## 7) BITMAPV5HEADER case (biSize >= 124)
 
-If `biCompression` is:
-- `BI_BITFIELDS` (3) or `BI_ALPHABITFIELDS` (6)
+| File Offset | Size | Field | Analyzer key |
+|------------:|-----:|------------------|-----------------|
+| `0x7A` | 4 | `bV5Intent` | `Intent` |
+| `0x7E` | 4 | `bV5ProfileData` | `Profile Data` |
+| `0x82` | 4 | `bV5ProfileSize` | `Profile Size` |
+| `0x86` | 4 | `bV5Reserved` | `Reserved (V5)` |
 
-Then masks define how to extract R/G/B/(A) from pixel values.
+### Intent mapping (correct BMP V5 values)
 
-### Masks location rules
-- For V4/V5 headers (biSize >= 108): masks are in the header (see below).
-- For BITMAPINFOHEADER (biSize=40) + BI_BITFIELDS: masks are stored **immediately after** the 40-byte header (3 DWORD masks, plus optional alpha).
+`bV5Intent` is a DWORD and should be one of these values:
 
-### Extracting channels (concept)
-For a pixel integer `px`:
-- `raw = (px & mask) >> shift`
-Where:
-- `shift` = number of trailing zeros in mask
-- bits per channel = popcount(mask)
-
----
-
-## 8) BITMAPV4HEADER (biSize = 108) — added offsets
-
-V4 includes INFOHEADER (40) + masks + colorspace fields.
-
-| DIB Offset | Size | Field |
-|---:|---:|---|
-| 40 | 4 | `bV4RedMask` |
-| 44 | 4 | `bV4GreenMask` |
-| 48 | 4 | `bV4BlueMask` |
-| 52 | 4 | `bV4AlphaMask` |
-| 56 | 4 | `bV4CSType` |
-| 60 | 36 | `bV4Endpoints` (CIEXYZTRIPLE) |
-| 96 | 4 | `bV4GammaRed` |
-| 100 | 4 | `bV4GammaGreen` |
-| 104 | 4 | `bV4GammaBlue` |
-
-Notes:
-- `bV4Endpoints` = 3 CIEXYZ structures (R, G, B), each CIEXYZ = 3 signed LONG (often fixed-point 16.16).
-- For many files, endpoints/gamma are 0 if using sRGB.
+| Value | Value                     | Meaning                                                                                                      |
+|------:|---------------------------|--------------------------------------------------------------------------------------------------------------|
+|     1 | `LCS_GM_BUSINESS`         | Maintains saturation. Used for business charts and other situations in which undithered colors are required. |
+|     2 | `LCS_GM_GRAPHICS`         | Maintains colorimetric match. Used for graphic designs and named colors.                                     |
+|     4 | `LCS_GM_IMAGES`           | Maintains contrast. Used for photographs and natural images.                                                 |
+|     8 | `LCS_GM_ABS_COLORIMETRIC` | Maintains the white point. Matches the colors to their nearest color in the destination gamut.               |
 
 ---
 
-## 9) BITMAPV5HEADER (biSize = 124) — added offsets
+## 8) Output summary (what you should expect to see)
 
-V5 includes V4 (108) plus ICC/profile-related fields:
+Depending on the DIB header size, Scorpion prints:
 
-| DIB Offset | Size | Field |
-|---:|---:|---|
-| 108 | 4 | `bV5Intent` |
-| 112 | 4 | `bV5ProfileData` |
-| 116 | 4 | `bV5ProfileSize` |
-| 120 | 4 | `bV5Reserved` |
-
-### bV5Intent values (rendering intent)
-- 0: Perceptual
-- 1: Relative Colorimetric
-- 2: Saturation
-- 3: Absolute Colorimetric
-
-
+- **Always**: signature, file size, reserved, pixel data offset, DIB header size/type
+- **CORE (12)**: width/height/planes/bpp
+- **INFO+ (>=40)**: width/height/planes/bpp/compression/image size/density/colors used/important colors
+- **V4+ (>=108)**: RGBA masks, color space type, endpoints, gamma
+- **V5 (>=124)**: intent, profile data/size, reserved

@@ -104,7 +104,8 @@ class JPEGAnalyzer:
                 
             with open(path, "rb") as f:
                 data = f.read()
-                
+            
+            data_info = {}    
             data_info = cls.parse_jpeg_sof(data)
             
             print(f"{Color.GREEN}===== SOF Data ====={Color.RESET}")

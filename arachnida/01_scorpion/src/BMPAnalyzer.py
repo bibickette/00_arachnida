@@ -55,10 +55,10 @@ class BMPAnalyzer:
         
         def get_intent(value: int) -> str:
             INTENTS = {
-                0: "LCS_GM_ABS_COLORIMETRIC",
-                1: "LCS_GM_BUSINESS",
-                2: "LCS_GM_GRAPHICS",
-                3: "LCS_GM_IMAGES",
+                1: "LCS_GM_BUSINESS - Graphic/Saturation",
+                2: "LCS_GM_GRAPHICS - Proof/Relative Colorimetric", 
+                4: "LCS_GM_IMAGES - Picture/Perceptual",
+                8: "LCS_GM_ABS_COLORIMETRIC - Match/Absolute Colorimetric",
             }
             return INTENTS.get(value, f"Unknown ({value})")
         
@@ -93,7 +93,7 @@ class BMPAnalyzer:
         
         if info_header_size >= 40:
             width = struct.unpack_from('<I', data, 18)[0]
-            height = struct.unpack_from('<I', data, 22)[0]
+            height = struct.unpack_from('<i', data, 22)[0]
             planes = struct.unpack_from('<H', data, 26)[0]
             bits_per_pixel = struct.unpack_from('<H', data, 28)[0]
             compression_method = struct.unpack_from('<I', data, 30)[0]
@@ -156,7 +156,8 @@ class BMPAnalyzer:
                 
             with open(path, "rb") as f:
                 data = f.read()
-                
+            
+            data_info = {}    
             data_info = cls.parse_bmp_header(data)
             
             print(f"{Color.BLUE}===== BMP Header Info ====={Color.RESET}")
