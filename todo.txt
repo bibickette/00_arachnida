@@ -1,5 +1,11 @@
-bmp top-bottom ou bottom-top ?
+bmp top-bottom ou bottom-top ? ok 
 
-- APP0 (JFIF) summary if present? jpeg
+- APP0 (JFIF) summary if present? jpeg deja dans info item
 
 bien recheck toute la doc si elle correspond a mes analyzer
+
+
+./scorpion.py img_extension/bmp/24bpp.bmp img_extension/bmp/8bpp.bmp img_extension/bmp/bmp_hdr124_32bit_gradient_seed42\ \(1\).bmp img_extension/bmp/bmp_hdr124_32bit_gradient_seed42.bmp img_extension/bmp/bmp_hdr12.bmp
+./scorpion.py img_extension/png/png.png img_extension/png/with_xmp.png
+./scorpion.py img_extension/jpeg/img_2.jpg img_extension/jpeg/img.jpg img_extension/jpeg/w_gps.jpg
+./scorpion.py img_extension/gif/gif_commented.gif img_extension/gif/img_gif.gif

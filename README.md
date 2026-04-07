@@ -133,6 +133,22 @@ Some sample assets are already available in `arachnida/01_scorpion/img_extension
 
 ```bash
 ./scorpion.py <file1> [file2 ...]
+
+# You can run the commands below to test Scorpion directly on those files:
+# BMP samples
+./scorpion.py img_extension/bmp/24bpp.bmp \
+             img_extension/bmp/8bpp.bmp \
+             img_extension/bmp/bmp_hdr124_32bit_gradient_seed42.bmp \
+             img_extension/bmp/bmp_hdr12.bmp
+
+# PNG samples
+./scorpion.py img_extension/png/png.png img_extension/png/with_xmp.png
+
+# JPEG samples
+./scorpion.py img_extension/jpeg/img_2.jpg img_extension/jpeg/img.jpg img_extension/jpeg/w_gps.jpg
+
+# GIF samples
+./scorpion.py img_extension/gif/gif_commented.gif img_extension/gif/img_gif.gif
 ```
 
 ### Tools used

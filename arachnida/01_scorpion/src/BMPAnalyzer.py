@@ -62,6 +62,14 @@ class BMPAnalyzer:
             }
             return INTENTS.get(value, f"Unknown ({value})")
         
+        def get_pixel_array_storage_order(height: int) -> str:
+            if height > 0:
+                return f"{height} pixels, pixels are stored bottom-up"
+            elif height < 0:
+                return f"{-height} pixels, pixels are stored top-down"
+            else:
+                return "Height is zero, invalid BMP file"
+        
         if data[:2] != b'BM':
             raise ValueError("Not a valid BMP file")
         
@@ -79,7 +87,7 @@ class BMPAnalyzer:
         if info_header_size == 12:
             core_width, core_height, core_planes, core_bits_per_pixel = struct.unpack_from('<HHHH', data, 18)
             data_info["Image Width"] = f"{core_width} pixels"
-            data_info["Image Height"] = f"{core_height} pixels"
+            data_info["Image Height"] = get_pixel_array_storage_order(core_height)
             data_info["Planes"] = core_planes
             data_info["Bits per Pixel"] = get_bits_per_pixel(core_bits_per_pixel)
         
@@ -96,7 +104,7 @@ class BMPAnalyzer:
             important_colors = struct.unpack_from('<I', data, 50)[0]
 
             data_info["Image Width"] = f"{width} pixels"
-            data_info["Image Height"] = f"{height} pixels"
+            data_info["Image Height"] = get_pixel_array_storage_order(height)
             data_info["Planes"] = planes
             data_info["Bits per Pixel"] = get_bits_per_pixel(bits_per_pixel)
             data_info["Compression Method"] = get_compression_method(compression_method)

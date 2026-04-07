@@ -5,18 +5,6 @@ import struct
 from src.BasicMetadata import BasicMetadata
 from src.Color import Color
 
-
-# print tous les attributs dans image
-def print_all_image_attributes(image: Image.Image) -> None:
-    try:
-        for attr in dir(image):
-            if not attr.startswith("_") and not callable(getattr(image, attr)):
-                print(f"{Color.YELLOW}{attr:20}:{Color.RESET} {getattr(image, attr)}")
-    except Exception as e:
-        print(f"{Color.RED}Error loading GIF metadata: {e}{Color.RESET}")
-
-
-
 class GIFAnalyzer:
     @staticmethod
     def parse_gif(data: bytes, data_info: dict) -> int:
