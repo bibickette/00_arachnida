@@ -1,157 +1,198 @@
+
 # JPEG — Analyzer Documentation
 
 *This document complements the **Scorpion** documentation. For project overview and usage instructions, see the main README [here](../README.md).*
 
-This document is a practical reference for `JPEGAnalyzer.py` in Scorpion.
-
-> Key idea: JPEG is a sequence of **markers**. You iterate `0xFF xx` markers, parse segment lengths, and extract metadata from APP/SOF segments.
+This documentation is written to **match what `JPEGAnalyzer.parse_jpeg_sof()` currently extracts** in your Scorpion project, while also describing the general structure of a JPEG file.
 
 ---
 
-## 0) Endianness & types
+## 1) What is a JPEG file?
 
-- JPEG marker bytes are raw.
-- Segment length fields are **big-endian** (2 bytes).
-- EXIF content inside APP1 is a TIFF structure that can be little-endian or big-endian (specified inside the EXIF block).
+**JPEG (Joint Photographic Experts Group)** is a compressed raster image format.  
+A JPEG file is organized as a sequence of **markers** (small tagged blocks). Some markers carry metadata (JFIF/EXIF/XMP/ICC), while others describe the encoded image (SOF/SOS/tables).
 
----
-
-## 1) Marker overview
-
-All markers start with `0xFF`.
-
-Common markers:
-
-| Marker | Hex | Meaning |
-|---|---:|---|
-| SOI | FFD8 | Start of Image |
-| EOI | FFD9 | End of Image |
-| APP0 | FFE0 | JFIF |
-| APP1 | FFE1 | EXIF and/or XMP |
-| APP2 | FFE2 | ICC profile (often split) |
-| DQT | FFDB | Quantization tables |
-| DHT | FFC4 | Huffman tables |
-| SOF0 | FFC0 | Baseline DCT frame header |
-| SOF2 | FFC2 | Progressive DCT frame header |
-| SOS | FFDA | Start of Scan (compressed data follows) |
-
----
-
-## 2) Segment structure (most markers)
-
-For most segments (APPn, DQT, SOF, DHT, COM, etc.):
+### General structure (high-level)
 
 ```
-FF xx  (marker)
-00 LL  (2-byte length, big-endian; includes these 2 bytes)
-...    (payload of length-2)
+SOI (FFD8)
+[APPn / COM / DQT / DHT / SOFn / ... segments]
+SOS (FFDA)
+  entropy-coded scan data (compressed image stream)
+EOI (FFD9)
 ```
 
-So payload length is:
-- `seg_len - 2`
-
-Special case:
-- After **SOS**, the compressed entropy-coded data continues until EOI; it’s not broken into length-prefixed segments.
+Your analyzer **does not decode the image stream**; it scans the file to find:
+- the encoding process + image size from a **SOF** marker, and
+- the EXIF TIFF byte order if an **APP1** segment is present.
 
 ---
 
-## 3) How to parse dimensions and encoding (SOF segments)
+## 2) Endianness rules (important)
 
-SOF payload typically contains:
+- JPEG **segment lengths** are **big-endian** (`>H`).
+- The EXIF data inside APP1 is a TIFF structure that declares its own byte order:
+  - `"II"` = little-endian
+  - `"MM"` = big-endian
 
-| Offset in SOF payload | Size | Meaning |
-|---:|---:|---|
-| 0 | 1 | sample precision (bits per sample) |
-| 1 | 2 | height (big-endian) |
-| 3 | 2 | width (big-endian) |
-| 5 | 1 | number of components |
-| 6.. | 3 * components | component data |
-
-Each component entry (3 bytes):
-- component id
-- sampling factors (hi nibble H, lo nibble V)
-- quant table id
-
-Scorpion can display:
-- baseline/progressive (based on which SOF marker appears)
-- width/height
-- components count (1,3,4)
-- subsampling derived from sampling factors (e.g., 4:2:0)
+Your code uses:
+- `struct.unpack(">H", ...)` for markers and segment lengths
+- a string search for `Exif\0\0` to locate the TIFF header
 
 ---
 
-## 4) JFIF (APP0)
+## 3) Marker basics
 
-APP0 payload often begins with:
-- ASCII `"JFIF\0"`
+Every JPEG marker begins with `0xFF` followed by a marker byte.
 
-Contains:
-- version
-- density units
-- X/Y density (DPI-ish)
-- thumbnail info
+Examples:
+- SOI = `FFD8`
+- EOI = `FFD9`
+- APP1 = `FFE1`
+- SOF0 = `FFC0`
+- SOF2 = `FFC2`
+- SOS = `FFDA`
 
-Good fields for output:
-- jfif_version
-- dpi / density
-
----
-
-## 5) EXIF (APP1) — structure
-
-APP1 can contain EXIF:
-- starts with ASCII: `Exif\0\0`
-
-Then a TIFF header:
-
-| TIFF Offset | Size | Field |
-|---:|---:|---|
-| 0 | 2 | byte order: `II` or `MM` |
-| 2 | 2 | 0x002A |
-| 4 | 4 | offset to 0th IFD |
-
-IFDs (Image File Directories) contain entries:
-- tag id (2)
-- type (2)
-- count (4)
-- value or offset (4)
-
-Important:
-- If the value doesn’t fit in 4 bytes, the entry stores an **offset** to the actual data.
-
-Common tags:
-- Make/Model, DateTimeOriginal, Orientation
-- GPSInfo pointer (leads to GPS IFD)
+> In your analyzer, the marker is read as a 16-bit big-endian value:
+> `marker = struct.unpack(">H", data[i:i+2])[0]`
 
 ---
 
-## 6) GPS IFD (EXIF)
+## 4) Segment structure (what your parser relies on)
 
-GPS tags commonly used:
-- LatitudeRef (N/S), Latitude (rationals)
-- LongitudeRef (E/W), Longitude (rationals)
-- GPSTimeStamp, GPSDateStamp
-- ImgDirection
+Most markers (APPn, SOFn, DQT, DHT, COM, etc.) are followed by a 2-byte length:
 
-Analyzer output suggestions:
-- print DMS tuples
-- optionally compute decimal degrees
+```
+FF xx    marker
+00 LL    length (big-endian)  -> includes the 2 length bytes, but NOT the marker bytes
+...      payload (length - 2 bytes)
+```
 
-* * *
+This matches your skip logic:
 
-## 7) SOF (frame) fields
-From SOF0/SOF2 you can extract:
-- Encoding process (baseline/progressive)
-- Bits per sample
-- Image width/height
-- Number of components (1 gray / 3 YCbCr / 4 CMYK)
-- Sampling factors (subsampling)
+```python
+seg_len = struct.unpack(">H", data[i+2:i+4])[0]
+i += 2 + seg_len
+```
+
+Special cases:
+- SOI (FFD8) and EOI (FFD9) are exactly 2 bytes (no length field)
 
 ---
 
-## 8) ICC profile (APP2)
+## 5) What `JPEGAnalyzer.parse_jpeg_sof()` extracts
 
-APP2 may contain ICC profile data, sometimes split across multiple APP2 segments.
-If you don’t fully rebuild it, it’s still useful to show:
-- ICC present (yes/no)
-- total ICC bytes (sum)
+Your parser walks the file and looks for:
+- **APP1 (FFE1)** to detect EXIF byte order
+- **SOF markers** (FFC0/FFC1/FFC2/FFC3/FFC9/FFCA) to extract image properties
+
+It stops as soon as it finds and parses a SOF marker (it `break`s).
+
+### A) APP1 (FFE1): EXIF byte order detection
+
+Your helper:
+
+```python
+idx = data.find(b"Exif\x00\x00")
+tiff_start = idx + 6
+order = data[tiff_start:tiff_start+2]
+```
+
+If it finds EXIF, it prints:
+- `ExifByteOrder`:
+  - `"Little-endian (Intel, II)"` if bytes are `II`
+  - `"Big-endian (Motorola, MM)"` if bytes are `MM`
+
+Notes (matching current behavior):
+- It does not parse IFD tags (Make/Model/GPS/etc.); it only detects byte order.
+- It searches the entire file for `Exif\0\0` rather than parsing the APP1 payload boundaries. This is OK for many files, but can be fooled by unusual content.
+
+### B) SOF: encoding process + dimensions + sampling
+
+When a SOF marker is found, your analyzer prints:
+
+- `EncodingProcess` (based on marker type, e.g. SOF0 baseline / SOF2 progressive)
+- `BitsPerSample`
+- `ImageHeight`
+- `ImageWidth`
+- `ColorComponents`
+- `YCbCrSubSampling` (derived from the sampling factors of the first component)
+
+#### SOF payload layout (as used by your code)
+
+Your code uses offsets relative to the marker position `i`:
+
+| Bytes in file | Meaning | Code |
+|---:|---|---|
+| `i+0..i+1` | marker | `marker` |
+| `i+2..i+3` | segment length | used to skip segments |
+| `i+4` | Sample precision (bits per sample) | `BitsPerSample = data[i+4]` |
+| `i+5..i+6` | Height (big-endian) | `ImageHeight` |
+| `i+7..i+8` | Width (big-endian) | `ImageWidth` |
+| `i+9` | Number of components | `ColorComponents` |
+| `i+10..` | Component descriptors | used for sampling |
+
+Component descriptor (3 bytes each):
+- Component ID (1 byte)
+- Sampling factors (1 byte): high nibble = H, low nibble = V
+- Quant table selector (1 byte)
+
+Your analyzer reads the sampling byte for the **first component** at `i+11`:
+- `y_sampling = data[i+11]`
+- `y_h = (y_sampling >> 4) & 0xF`
+- `y_v = y_sampling & 0xF`
+
+Then maps some common cases:
+- (2,2) → 4:2:0
+- (2,1) → 4:2:2
+- (1,1) → 4:4:4
+- (4,1) → 4:1:1
+
+---
+
+## 6) What this analyzer does NOT parse (yet)
+
+To keep expectations aligned with your current implementation, `JPEGAnalyzer` does not currently:
+
+- Parse APP0 (JFIF) fields (version, density, etc.)
+- Parse EXIF tags (DateTimeOriginal, Orientation, GPS, etc.)
+- Parse ICC profile (APP2)
+- Parse comments (COM)
+- Decode compressed scan data (SOS stream)
+
+It focuses on a minimal but useful subset:
+- **SOF** image characteristics
+- **EXIF byte order** detection
+
+---
+
+## 7) Typical output keys
+
+You should expect keys such as:
+
+- `ExifByteOrder` (only if EXIF is found)
+- `EncodingProcess`
+- `BitsPerSample`
+- `ImageHeight`
+- `ImageWidth`
+- `ColorComponents`
+- `YCbCrSubSampling`
+
+---
+
+## 8) Known implementation notes (worth documenting)
+
+These are not “bugs” per se, but they explain behavior:
+
+1. **Stops at the first SOF found**  
+   Many JPEGs contain a single SOF; this is usually fine.
+
+2. **Height/Width come from SOF, not from Pillow**  
+   Pillow already knows dimensions, but this proves you can parse the binary structure.
+
+3. **APP1 is not bounded to the segment**  
+   The EXIF detection searches globally for `Exif\0\0`. A stricter parser would:
+   - parse APP1 segments properly
+   - then look inside the APP1 payload
+
+If you want, I can show you a “strict APP1 parsing” approach that still stays simple and only reads the EXIF byte order.
