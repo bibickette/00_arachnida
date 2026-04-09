@@ -104,16 +104,29 @@ class GIFAnalyzer:
                 f"{Color.GREEN}Signature hex": signature.hex(' ').upper(),
                 f"{Color.GREEN}Screen Width": screen_width,
                 f"{Color.GREEN}Screen Height": screen_height,
-                f"{Color.GREEN}G Color Table Flag": (packed >> 7) & 1,
-                f"{Color.GREEN}Backgrnd Color Idx": bg_color_index
+                f"{Color.GREEN}Backgrnd Color Idx": bg_color_index,
+                f"{Color.GREEN}G Color Table Flag": (packed >> 7) & 1
             })
+            if aspect != 0:
+                data_info[f"{Color.GREEN}Pixel Aspect Ratio"] = f"{(aspect + 15) / 64:.2f}"
+            else:
+                data_info[f"{Color.GREEN}Pixel Aspect Ratio"] = "Not specified"
             
             return packed
         
         i = 6 # après la signature de 6 octets
         packed = parse_gif_header(data, i, data_info)
         i += 7  # skip screen descriptor ( 2 + 2 + 1 + 1 + 1 )
-        i = skip_color_table(packed, i)
+        
+        # skip global color table if present
+        ct_flag = (packed >> 7) & 1
+        ct_size = 2 ** ((packed & 0b111) + 1)
+        if ct_flag:
+            data_info.update({
+                f"{Color.GREEN}G Color Table Size": ct_size,
+                f"{Color.GREEN}G Color Table Bytes": ct_size * 3})
+            i += 3 * ct_size 
+            
         frames = 0
         while i < len(data):
             if i == -1:

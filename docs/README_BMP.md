@@ -192,14 +192,3 @@ And prints:
 |     4 | `LCS_GM_IMAGES`           | Maintains contrast. Used for photographs and natural images.                                                 |
 |     8 | `LCS_GM_ABS_COLORIMETRIC` | Maintains the white point. Matches the colors to their nearest color in the destination gamut.               |
 
----
-
-## 8) Output summary (what you should expect to see)
-
-Depending on the DIB header size, Scorpion prints:
-
-- **Always**: signature, file size, reserved, pixel data offset, DIB header size/type
-- **CORE (12)**: width/height/planes/bpp
-- **INFO+ (>=40)**: width/height/planes/bpp/compression/image size/density/colors used/important colors
-- **V4+ (>=108)**: RGBA masks, color space type, endpoints, gamma
-- **V5 (>=124)**: intent, profile data/size, reserved
