@@ -1,8 +1,6 @@
-# GIF — Analyzer Documentation
+# GIF - Analyzer Documentation
 
 *This document complements the **Scorpion** documentation. For project overview and usage instructions, see the main README [here](../README.md).*
-
-This documentation is written to **match what `GIFAnalyzer.parse_gif()` currently extracts** in your Scorpion project, and to explain the general structure of a GIF file.
 
 ---
 

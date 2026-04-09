@@ -1,8 +1,6 @@
-# JPEG — Analyzer Documentation
+# JPEG - Analyzer Documentation
 
 *This document complements the **Scorpion** documentation. For project overview and usage instructions, see the main README [here](../README.md).*
-
-This documentation is written to **match what `JPEGAnalyzer.parse_jpeg_sof()` currently extracts** in your Scorpion project, while also describing the general structure of a JPEG file.
 
 ---
 

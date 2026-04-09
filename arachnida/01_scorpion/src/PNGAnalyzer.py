@@ -1,3 +1,5 @@
+import struct
+
 from PIL import Image
 
 from src.BasicMetadata import BasicMetadata
@@ -28,19 +30,22 @@ class PNGAnalyzer:
             
             decoder = PNG_VALUE_DECODER.get(key, {})
             return decoder.get(str(value), value)
+        if len(data) < 8 or data[:8] != b'\x89PNG\r\n\x1a\n':
+            raise ValueError("Not a valid PNG file")
+        
         data_info = {}
         data_info["PNG Signature"] = data[:8].hex(' ').upper()
         i = 8
         while i < len(data):
-            length = int.from_bytes(data[i:i+4], 'big')
+            length = struct.unpack(">I", data[i:i+4])[0]
             
             chunk_type = data[i+4:i+8].decode('ascii')
             chunk_data = data[i+8:i+8+length]
             # CRC = data[i+8+length:i+12+length]
             
             if chunk_type == 'IHDR':
-                data_info['width']  = int.from_bytes(chunk_data[0:4], 'big')
-                data_info['height'] = int.from_bytes(chunk_data[4:8], 'big')
+                data_info['width']  = struct.unpack(">I", chunk_data[0:4])[0]
+                data_info['height'] = struct.unpack(">I", chunk_data[4:8])[0]
                 data_info['bit_depth'] = chunk_data[8]
                 data_info['color_type'] = decode_png_value('color_type', chunk_data[9])
                 data_info['compression_method'] = decode_png_value('compression_method', chunk_data[10])
