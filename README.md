@@ -180,7 +180,7 @@ More informations about each formats :
 * * *
 # Using `arachnida`
 
-1. Clone `00_arachnida` in a folder first  : `git clone git@github.com:bibickette/00_arachnida.git`
+1. Clone `00_arachnida` in a folder first  : `git clone https://github.com/bibickette/00_arachnida.git`
 2. Go to the `00_arachnida` folder and install the Python environment *(see [setup environement](#setup-python-environment) for more details)*
 3. Activate the environment with : `source .venv/bin/activate`
 
